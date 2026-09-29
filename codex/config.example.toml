@@ -1,0 +1,16 @@
+# 참고용 예시. ~/.codex/config.toml에 필요한 부분만 옮긴다. install.py는 이 파일을 복사하지 않는다.
+# 출처: https://learn.chatgpt.com/codex/config-file/config-reference
+#       https://learn.chatgpt.com/codex/agent-configuration/subagents
+# 공식 문서 확인일: 2026-09-29
+
+model = "gpt-6-sol"
+model_reasoning_effort = "medium"
+review_model = "gpt-6-astra"
+
+[agents]
+max_concurrent_threads_per_session = 3
+
+# 메인 세션을 Astra로 쓰려면:
+#   codex --model gpt-6-astra -c 'model_reasoning_effort="high"'
+# 또는 ~/.codex/<name>.config.toml 파일을 두고 --profile <name> 으로 부른다
+# (0.134.0부터 config.toml의 [profiles.x] 블록은 미지원).

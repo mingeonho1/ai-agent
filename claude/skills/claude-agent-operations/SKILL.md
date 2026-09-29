@@ -11,10 +11,10 @@ description: Claude Code에서 계획, 구현, 명령 실행, 독립 검토를 �
 | 역할 | Agent | 모델 | Effort |
 | --- | --- | --- | --- |
 | 계획과 판단 | ai-planner | Claude Fable 5.1 (`claude-fable-5-1`) | high |
-| 구현과 수정 | ai-builder | Claude Opus 5.0 표기 대응 (`claude-opus-5`, 공식 이름 Opus 5) | medium |
-| 조회와 명령 | ai-runner | Claude Sonnet 5 (`claude-sonnet-5`) | medium |
+| 구현과 수정 | ai-builder | Claude Opus 5.5 (`claude-opus-5-5`) | medium |
+| 조회와 명령 | ai-runner | Claude Sonnet 5.5 (`claude-sonnet-5-5`) | medium |
 | 독립 검토 | ai-reviewer | Claude Fable 5.1 (`claude-fable-5-1`) | xhigh |
-| 평가 기록과 다음 행동 | ai-loop | Claude Opus 5 (`claude-opus-5`) | medium |
+| 평가 기록과 다음 행동 | ai-loop | Claude Opus 5.5 (`claude-opus-5-5`) | medium |
 
 메인도 Fable 5.1 high로 운영하려면 해당 모델과 effort로 세션을 시작한다.
 agent의 `model`과 `effort`는 설치된 정의에 따른다. agent가 없거나 지정 모델을
@@ -32,8 +32,8 @@ agent의 `model`과 `effort`는 설치된 정의에 따른다. agent가 없거�
    독립 작업만 병렬로 실행하며 동시에 실행하는 worker는 최대 3개로 한다.
    파일마다 작성자는 한 명이다. agent의 재위임은 사용하지 않는다.
    이 동시 실행 수와 재위임 금지는 이 harness의 운영 규칙이다.
-4. worker는 핵심 결과, 증거 경로와 미해결 항목만 반환한다. 메인은 계약과
-   인수인계를 갱신한다. 긴 로그와 전체 대화 기록을 다음 agent에 넘기지 않는다.
+4. worker는 핵심 결과, 증거 경로와 미해결 항목만 1~2k 토큰 이내 요약으로 반환한다.
+   메인은 계약과 인수인계를 갱신한다. 긴 로그와 전체 대화 기록을 다음 agent에 넘기지 않는다.
 5. 구현과 관련 검증이 끝나고 작성자가 모두 멈춘 뒤 현재 변경 목록과 diff를
    확정한다. Git이 없으면 변경 전후 파일과 변경 경로를 제공한다. ai-runner가
    diff와 명령 결과를 지정된 증거 파일에 저장할 수 있다.
@@ -50,6 +50,10 @@ agent의 `model`과 `effort`는 설치된 정의에 따른다. agent가 없거�
 ## 평가 기반 개선
 
 반복 평가가 필요한 작업은 설치된 `$agent-evaluation-loop`를 함께 사용한다.
+이 방식은 공식 루프 종료 게이트 네 가지(프롬프트 내 검사, `/goal`, Stop 훅,
+검증 서브에이전트) 중 "검증 서브에이전트"에 해당하며, 일한 에이전트가 스스로
+채점하지 않도록 새 reviewer가 판정한다. `/goal`과 Stop 훅은 선택 옵션이다
+(출처: https://code.claude.com/docs/en/best-practices).
 구현 전에 원래 요구사항, 필수 기준, 차원·가중치·앵커·통과 기준을 고정한다.
 각 회차마다 ai-reviewer를 상속 없는 새 인스턴스로 실행하며 원래 요구사항과 고정
 루브릭·체크리스트의 실제 파일 경로는 주되 이전 점수와 반복 기록은 보여주지 않는다. reviewer의 구조화된
@@ -61,7 +65,8 @@ baseline 포함 최대 3회이며, 결함 해결이나 새 증거가 없는 회�
 `STOP_NOT_COMPLETE`로 멈춘다. 숫자를 올리기 위한 재시도, 통과 기준 완화, 테스트
 제거를 허용하지 않는다. 루브릭 변경은 새 버전과 새 baseline으로 시작한다.
 
-읽기 전용 reviewer에는 Bash, Edit, Write, Agent를 제공하지 않는다.
+읽기 전용 reviewer에는 Bash, Edit, Write, Agent를 제공하지 않는다. reviewer는
+독립성을 위해 skills나 memory를 프리로드하지 않는다.
 동일 checkout의 변경을 검토하므로 자동 worktree 생성은 필요하지 않다.
 기존 사용자 규칙과 허가 범위는 유지하며 이 skill 자체가 push, PR, 외부 전송을
 허가하지 않는다.

@@ -30,3 +30,4 @@
 - [Trustworthy third-party evaluations](https://openai.com/index/trustworthy-third-party-evaluations-foundations/): 모델·하니스·예산 기록, 주장 자체의 검증, 깨진 기준과 보상 해킹 방지
 - [Anthropic, Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents): 결과 근거, 명확한 가중·이진·혼합 채점, grader 보정, 회귀 사례
 - [Anthropic, Harness design for long-running apps](https://www.anthropic.com/engineering/harness-design-long-running-apps): 점수 앵커 예시, 구현과 평가 역할 분리, 반복 개선
+- OpenAI Evals 대시보드·API는 2026-10-31 읽기 전용, 2026-11-30 종료 예정([공지](https://developers.openai.com/api/docs/deprecations))이다. 이 루프는 그 API를 호출하지 않고 방법론만 참고하며, 후속 도구는 [Datasets](https://developers.openai.com/api/docs/guides/evaluation-getting-started)다.

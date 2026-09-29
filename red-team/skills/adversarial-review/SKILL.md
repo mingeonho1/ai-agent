@@ -14,7 +14,7 @@ description: 제품 의도와 코드 구현을 최신 1차 출처와 읽기 전�
 ## 실행
 
 1. 원래 요구사항, 대상 범위, 기준 시점, 제품 모드와 코드 모드 중 필요한 모드를 확정한다.
-2. 메인 에이전트는 이름 있는 red-team 에이전트를 새 읽기 전용 인스턴스로 호출한다. Claude는 fork나 resume 없이 Fable 5.1 xhigh `ai-red-team`을 새로 시작한다. Codex는 Astra xhigh `ai_red_team`을 `fork_turns: none` 또는 상속이 없다고 확인된 동등 방식으로 시작한다. 지정 모델·추론이나 새 컨텍스트를 확인할 수 없으면 독립 검토를 `미완료`로 보고한다. 다른 모델이나 자기 검토로 대체하지 않는다.
+2. 메인 에이전트는 이름 있는 red-team 에이전트를 새 읽기 전용 인스턴스로 호출한다. Claude는 fork나 resume 없이 Fable 5.1 xhigh `ai-red-team`을 새로 시작한다. Codex는 Astra xhigh `ai_red_team`을 매번 `spawn_agent`로 새 스레드에서 시작하고 이전 스레드를 `resume_agent`·`send_input`으로 재개하지 않는다(Responses API를 직접 쓸 때는 `fork_turns`를 비상속으로 확인한다). 지정 모델·추론이나 새 컨텍스트를 확인할 수 없으면 독립 검토를 `미완료`로 보고한다. 다른 모델이나 자기 검토로 대체하지 않는다.
 3. red-team 에이전트에 원래 요구사항, 수용 기준, 안정된 현재 diff, 관련 파일, 테스트 결과와 출처 원문을 전달한다. 이 Skill과 `references/checklist.md`의 실제 설치 경로도 명시해 새 에이전트가 결과 형식·등급 기준을 직접 읽게 한다. 구현자의 추론·결론, 이전 점수는 전달하지 않는다. 재검토에도 같은 입력을 갖춘 새 인스턴스를 쓴다.
 4. red-team 에이전트는 자식 에이전트를 호출하지 않는다. 명령 실행, 최신 웹 확인 또는 추가 증거가 필요하면 메인 오케스트레이터나 runner에 정확한 요청을 돌려보낸다.
 5. [체크리스트](references/checklist.md)에 따라 반례와 실패 조건을 찾고, 모든 발견사항을 지정 형식으로 작성한다.

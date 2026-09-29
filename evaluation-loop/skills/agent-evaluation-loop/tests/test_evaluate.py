@@ -30,7 +30,7 @@ def baseline():
             "actual_reviewer_effort": "xhigh",
             "isolation_confirmed": True,
         },
-        "loop": {"model": "gpt-5.6-sol", "effort": "medium"},
+        "loop": {"model": "gpt-6-sol", "effort": "medium"},
         "progress_kind": "baseline",
         "dimensions": {
             name: {"score": 4, "evidence": [f"evidence for {name}"]}

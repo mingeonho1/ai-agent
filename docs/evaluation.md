@@ -1,6 +1,6 @@
 # 점수를 개선 기록으로 쓰는 방법
 
-공식 문서 확인일: 2026-09-17. 이 저장소의 평가는 결과물의 약점을 찾기 위한 운영 도구다. 모델의 일반 성능이나 토큰 절감률을 입증하는 벤치마크가 아니다.
+공식 문서 확인일: 2026-09-29. 이 저장소의 평가는 결과물의 약점을 찾기 위한 운영 도구다. 모델의 일반 성능이나 토큰 절감률을 입증하는 벤치마크가 아니다.
 
 ## 공식 자료에서 가져온 것
 
@@ -12,12 +12,14 @@
 | [OpenAI 독립 평가 지침](https://openai.com/index/trustworthy-third-party-evaluations-foundations/), 2026-05-29, harness / validity / reporting | 어떤 주장을 시험했는지, 모델·추론·도구·예산을 기록한다. 잘못된 문제·평가 우회·비교 조건 변경을 확인한다. |
 | [Anthropic Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents), 2026-01-09 | 에이전트의 완료 선언보다 실제 결과를 확인한다. 결정적 검사와 판단이 필요한 평가를 조합하고 실패 사례를 회귀 검사로 남긴다. |
 | [Anthropic Harness design](https://www.anthropic.com/engineering/harness-design-long-running-apps), 2026-03-24, evaluator / iteration | 구현과 평가를 분리한다. 평가 예시와 차원별 문턱을 두고 반복 결과를 비교한다. 논문의 실험 횟수나 성능 수치는 가져오지 않았다. |
+| [OpenAI Evals 종료 공지](https://developers.openai.com/api/docs/deprecations) | Evals 대시보드·API는 2026-10-31 읽기 전용, 2026-11-30 종료 예정이다. 이 저장소는 그 API를 호출하지 않고 방법론만 참고하며, 후속 도구는 [Datasets](https://developers.openai.com/api/docs/guides/evaluation-getting-started)다. |
+| [OpenAI Agent evals](https://developers.openai.com/api/docs/guides/agent-evals) | 에이전트 실행의 최종 상태·궤적을 확인하는 관점을 참고한다. 이 저장소의 루프는 로컬 스크립트로 집계하고 이 API를 호출하지 않는다. |
 
 ## 플랫폼에 맞춘 적용
 
-Claude는 Markdown named subagent의 `model`, `effort`, `tools`를 사용한다. 평가자는 새 Fable 5.1 xhigh, 기록과 개선 제안은 Opus 5 medium이다. 기존의 선택형 `SessionStart` 훅 외에 매 호출 평가 훅을 추가하지 않는다.
+Claude는 Markdown named subagent의 `model`, `effort`, `tools`를 사용한다. 평가자는 새 Fable 5.1 xhigh, 기록과 개선 제안은 Opus 5.5 medium이다. 기존의 선택형 `SessionStart` 훅 외에 매 호출 평가 훅을 추가하지 않는다.
 
-Codex는 TOML 역할 설정을 사용한다. 새 Astra xhigh가 고정된 기준으로 평가하고, Sol medium이 기록과 다음 수정 범위를 다룬다. 실행 증거 확보는 Terra medium에 맡길 수 있다. 루프 제어를 위한 별도 런타임 훅은 두지 않는다.
+Codex는 TOML 역할 설정을 사용한다. 새 Astra xhigh가 고정된 기준으로 평가하고, Sol medium이 기록과 다음 수정 범위를 다룬다. 실행 증거 확보는 Luna high에 맡길 수 있다. 루프 제어를 위한 별도 런타임 훅은 두지 않는다.
 
 두 플랫폼 모두 루프 에이전트가 직접 다른 에이전트를 만들지 않는다. 메인이 파일 소유권을 유지하면서 수정·재평가를 호출한다. 점수 계산 스크립트는 네트워크나 모델을 호출하지 않는다. 따라서 스크립트 실행만으로 실제 모델 리뷰가 수행됐다고 볼 수 없다.
 

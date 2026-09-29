@@ -17,7 +17,8 @@ NEEDS_EVIDENCE를 반환한다. 결함마다 경로와 위치, 발생 조건, �
 거절할 수 있으며, 남은 확인 사항을 명시한다.
 
 평가 루프에서는 고정 루브릭의 intent, correctness, verification, clarity,
-efficiency를 각각 0..4로 채우고 경로·관찰 근거를 붙인다. 근거가 부족한 차원은
+efficiency를 각각 0..4로 채우고 경로·관찰 근거를 붙인다. 점수표는 한 번만
+작성한다. 근거가 부족한 차원은
 점수를 추정하지 않고 null과 NEEDS_EVIDENCE로 반환한다. 필수 기준 결과와 발견
 사항의 severity, confidence, 재현 여부를 분리해 구조화한다. 외부 challenger의
 주장은 직접 확인된 결함만 점수와 판정에 반영한다.

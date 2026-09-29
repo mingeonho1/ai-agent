@@ -1,6 +1,6 @@
 # 근거와 적용 범위
 
-확인 기준일: 2026-09-17. 아래는 유지되는 공식·1차 출처에서 가져온 검토 기법이다. 이 스킬은 해당 프레임워크를 설치하지 않으며, 공식 스킬이나 공식 승인을 받은 구현도 아니다.
+확인 기준일: 2026-09-29. 아래는 유지되는 공식·1차 출처에서 가져온 검토 기법이다. 이 스킬은 해당 프레임워크를 설치하지 않으며, 공식 스킬이나 공식 승인을 받은 구현도 아니다.
 
 ## Anthropic: 에이전트 평가
 
@@ -18,5 +18,6 @@
 
 - [OWASP Risk Rating Methodology](https://community.owasp.org/OWASP_Risk_Rating_Methodology): 위험을 발생 가능성과 영향으로 나누고 조직의 사업 맥락에 맞추라는 원칙을 참고했다. 이 스킬의 상·중·하 정의는 자체 3단계 영향 분류이며 OWASP의 공식 통일 척도가 아니다.
 - [OpenAI: A shared playbook for trustworthy third party evaluations](https://openai.com/index/trustworthy-third-party-evaluations-foundations/), 2026-05-29: 검증하려는 주장을 명확히 하고 모델·하네스·도구·예산을 보고하며, 보상 해킹과 잘못된 정답·모호한 기준·누락 파일 같은 깨진 평가 조건을 점검한다.
+- [OpenAI: Red teaming](https://developers.openai.com/api/docs/guides/red-teaming): evals는 시스템이 의도대로 동작하는지, red teaming은 적대적·예상 밖 입력에서 어떻게 동작하는지를 본다는 구분을 인용한다. 이 스킬은 Promptfoo 같은 도구를 설치하지 않고 역할 분리와 반례 설계 관점만 참고한다.
 
 인기, 별점, 시장 지위는 측정 자료가 없으면 주장하지 않는다. 출처에서 직접 입증되지 않은 일반화는 이 스킬의 설계 선택이라고 밝힌다.

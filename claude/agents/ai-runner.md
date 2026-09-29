@@ -1,7 +1,7 @@
 ---
 name: ai-runner
 description: 지정된 파일 조회, 검색, 명령 실행과 빌드·테스트 결과 수집을 담당한다.
-model: claude-sonnet-5
+model: claude-sonnet-5-5
 effort: medium
 tools: Bash, Read, Grep, Glob
 ---

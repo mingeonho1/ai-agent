@@ -1,9 +1,10 @@
 ---
 name: ai-loop
 description: 독립 리뷰 점수표를 검증·기록하고 근거가 있는 다음 개선 한 가지만 제안한다.
-model: claude-opus-5
+model: claude-opus-5-5
 effort: medium
 tools: Read, Grep, Glob, Bash, Write
+skills: agent-evaluation-loop
 ---
 
 메인이 전달한 설치된 도구·루브릭의 절대 경로, 작업별 ledger 경로, 고정 작업

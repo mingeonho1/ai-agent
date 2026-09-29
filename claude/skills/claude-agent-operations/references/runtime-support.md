@@ -1,14 +1,18 @@
 # 실행 환경
 
 Claude Fable 5.1은 공식 모델 `claude-fable-5-1`이며 Opus 별칭이 아니다.
-Claude Code v2.1.257 이상이 필요하다. Opus 5.0 요청의 공식 모델 ID는
-`claude-opus-5`, Sonnet 5는 `claude-sonnet-5`다.
+Fable 5.1은 Claude Code v2.1.257 이상이 필요하고, Opus 5.5(`claude-opus-5-5`)와
+Sonnet 5.5(`claude-sonnet-5-5`)는 최신 Claude Code로 갱신한다(`claude update`).
+별칭은 `opus`→Opus 5.5, `sonnet`→Sonnet 5.5, `fable`→Fable 5.1로 풀린다.
+Bedrock·Vertex에서는 별칭이 다르게 풀리므로 전체 모델 ID를 사용한다.
 
 ```sh
 claude --model claude-fable-5-1 --effort high
 ```
 
 `CLAUDE_CODE_EFFORT_LEVEL`은 agent frontmatter의 effort보다 우선한다.
+subagent 모델은 호출 시 지정 → frontmatter `model` → `CLAUDE_CODE_SUBAGENT_MODEL`
+환경 변수 → 메인 대화 모델 순으로 결정된다. `/fast`(Fast mode)는 Opus 5.5에서 동작한다.
 모델 강제 지정이나 조직의 모델·effort 제한도 실제 실행에 영향을 줄 수 있다.
 요청한 설정과 다르면 이를 보고하고 사용자의 환경 변수를 임의로 변경하지 않는다.
 이 패키지의 파일 검증은 계정별 모델 접근이나 실제 모델 실행의 증거가 아니다.
@@ -32,3 +36,5 @@ native Claude 구성에는 `agents/openai.yaml`이 필요하지 않다.
 - [Skill 설치 위치](https://code.claude.com/docs/en/skills)
 - [SessionStart hook](https://code.claude.com/docs/en/hooks#sessionstart)
 - [Fable 5.1](https://platform.claude.com/docs/en/models/fable-5-1/overview)
+- [Effort 가이드](https://platform.claude.com/docs/en/build-with-claude/effort)
+- [베스트 프랙티스](https://code.claude.com/docs/en/best-practices)
