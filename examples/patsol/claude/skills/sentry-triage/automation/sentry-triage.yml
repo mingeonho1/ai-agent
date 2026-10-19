@@ -1,0 +1,65 @@
+# Copy to the target repo's .github/workflows/sentry-triage.yml.
+# Auto-triggered via Sentry Alert → (relay) → repository_dispatch(type=sentry-alert),
+# or run manually (workflow_dispatch) from the Actions tab. See automation/README.md for the plumbing.
+name: sentry-triage
+
+on:
+  repository_dispatch:
+    types: [sentry-alert]
+  workflow_dispatch:
+    inputs:
+      issue_url:
+        description: "Sentry issue URL or issue-id"
+        required: true
+      autofix:
+        description: "Auto PR when clear (1) / report only (0)"
+        required: false
+        default: "1"
+
+concurrency:
+  # Prevent duplicate runs for the same issue
+  group: sentry-triage-${{ github.event.client_payload.issue_url || github.event.inputs.issue_url }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write        # push branches
+      pull-requests: write    # open PRs
+    env:
+      ISSUE_URL: ${{ github.event.client_payload.issue_url || github.event.inputs.issue_url }}
+      SENTRY_TRIAGE_AUTOFIX: ${{ github.event.inputs.autofix || '1' }}
+      SENTRY_TRIAGE_SLACK_WEBHOOK: ${{ secrets.SENTRY_TRIAGE_SLACK_WEBHOOK }}
+      SENTRY_TRIAGE_ONCALL: ${{ secrets.SENTRY_TRIAGE_ONCALL }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GH_TOKEN: ${{ secrets.GH_PR_TOKEN }}
+    steps:
+      - name: Checkout (develop = PR base)
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0        # git tracing (pickaxe/blame) needs full history
+          token: ${{ secrets.GH_PR_TOKEN }}
+
+      - name: Fetch main (analysis ref)
+        run: git fetch origin main:refs/remotes/origin/main
+
+      - name: Setup Node (Claude Code)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code + Sentry MCP
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude mcp add sentry npx @sentry/mcp-server -- --access-token=${{ secrets.SENTRY_MCP_TOKEN }}
+
+      - name: Run sentry-triage (headless)
+        run: |
+          claude -p "/sentry-triage ${ISSUE_URL} --ref main --base develop" \
+            --permission-mode acceptEdits \
+            --allowedTools "Bash,Read,Edit,Write,Grep,Glob,Skill"
+        # Ambiguous → zero code + Slack @on-call.  Clear & AUTOFIX=1 → hand off to fix-bug → PR (develop).
+        # No auto-merge — PRs are reviewed/merged by humans.

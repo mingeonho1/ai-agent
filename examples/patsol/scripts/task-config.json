@@ -1,0 +1,26 @@
+{
+  "_comment": "Stable IDs for the new-task pipeline. No secrets here — credentials live in the .env referenced by AGENT_RULES_ENV. The project_key / assignee_account_id / team_id / repo come from your answers; the issuetype_id / board_id / sprint_field / team_field are generic Jira-Cloud defaults — regenerate them for your instance with discover.py if ticket creation fails. The Korean notion.prop_* values (prop_title, prop_start_date, prop_work_type) are schema-bound Notion property names and must match the live Notion workspace schema exactly — do not translate them.",
+  "jira": {
+    "project_key": "{{JIRA_PROJECT_KEY}}",
+    "issuetype_id": "10003",
+    "assignee_account_id": "{{JIRA_ACCOUNT_ID}}",
+    "board_id": 1,
+    "sprint_field": "customfield_10020",
+    "team_field": "customfield_10001",
+    "team_id": "{{JIRA_TEAM_ID}}",
+    "labels": ["backend"]
+  },
+  "notion": {
+    "prop_title": "이름",
+    "prop_url": "URL",
+    "prop_start_date": "시작일",
+    "prop_work_type": "작업 유형",
+    "work_type_is_multi": true
+  },
+  "git": {
+    "repo": "{{BACKEND_REPO_PATH}}",
+    "base_branch": "develop",
+    "feature_prefix": "f",
+    "hotfix_prefix": "h"
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "_comment": "Korean property names, select values, and dashboard_heading below are bound to the live Notion/Jira workspace schema and must match it exactly — do not translate.",
+  "version": 1,
+  "created_at": "2026-01-01",
+  "tracking_start_date": "2026-01-01",
+  "timezone": "Asia/Seoul",
+  "collector": "~/.claude/worklog/bin/collect.py",
+  "state_file": "~/.claude/worklog/state.json",
+  "repo_roots": [
+    "{{REPO_ROOT}}"
+  ],
+  "notion": {
+    "parent_page_id": "{{NOTION_PARENT_PAGE_ID}}",
+    "parent_page_url": "",
+    "dashboard_heading": "📈 누적 대시보드",
+    "ticket_db": {
+      "database_id": "{{NOTION_TICKET_DB_ID}}",
+      "database_url": "",
+      "data_source_id": "{{NOTION_TICKET_DS_ID}}",
+      "data_source_url": "collection://{{NOTION_TICKET_DS_ID}}",
+      "title_prop": "티켓 키",
+      "time_props": {
+        "claude": "누적 Claude 작업시간",
+        "planning": "누적 기획시간",
+        "research": "누적 이해조사시간",
+        "discussion": "누적 논의시간",
+        "etc": "누적 기타시간"
+      },
+      "props": {
+        "summary": "요약",
+        "jira_url": "Jira 링크",
+        "status": "상태",
+        "blocked": "막힌 점",
+        "commits": "커밋 수",
+        "sessions": "세션 수",
+        "start_date": "시작일",
+        "done_date": "완료일",
+        "my_minutes": "누적 내 시간"
+      }
+    },
+    "work_db": {
+      "database_id": "{{NOTION_WORK_DB_ID}}",
+      "database_url": "",
+      "data_source_id": "{{NOTION_WORK_DS_ID}}",
+      "data_source_url": "collection://{{NOTION_WORK_DS_ID}}",
+      "title_prop": "작업명",
+      "props": {
+        "ticket": "티켓",
+        "kind": "구분",
+        "tool": "도구",
+        "total_min": "총 시간(분)",
+        "my_min": "내 시간(분)",
+        "claude_min": "Claude 작업(분)",
+        "reaction_min": "반응 지연(분)",
+        "tokens": "토큰",
+        "sessions": "세션 수",
+        "first_date": "첫 사용일",
+        "last_date": "마지막 사용일",
+        "jira_status": "Jira 상태",
+        "work_summary": "요약"
+      },
+      "kind_values": {"ticket": "티켓", "non_ticket": "티켓 외"},
+      "tool_values": {"claude": "Claude", "codex": "Codex"},
+      "default_view_sort": "내 시간(분)"
+    },
+    "daily_db": {
+      "database_id": "{{NOTION_DAILY_DB_ID}}",
+      "database_url": "",
+      "data_source_id": "{{NOTION_DAILY_DS_ID}}",
+      "data_source_url": "collection://{{NOTION_DAILY_DS_ID}}",
+      "title_prop": "날짜",
+      "date_prop": "날짜값",
+      "relation_prop": "관련 티켓",
+      "time_props": {
+        "claude": "작업(분)",
+        "planning": "기획(분)",
+        "research": "이해조사(분)",
+        "discussion": "논의(분)",
+        "etc": "기타(분)"
+      },
+      "props": {
+        "commits": "커밋 수",
+        "sessions": "세션 수",
+        "status_changes": "상태 변화",
+        "retro": "하루 회고",
+        "my_minutes": "내 시간(분)",
+        "switches": "스위칭 수",
+        "tokens_total": "토큰 합계",
+        "reaction_delay_sum": "반응 지연 합계(분)",
+        "non_ticket_minutes": "티켓 외 시간(분)"
+      }
+    }
+  },
+  "jira": {
+    "cloud_id": "{{JIRA_CLOUD_ID}}",
+    "site": "https://{{JIRA_SITE}}",
+    "account_id": "{{JIRA_ACCOUNT_ID}}",
+    "project_keys": ["{{JIRA_PROJECT_KEY}}"],
+    "my_issues_jql": "assignee = currentUser() ORDER BY updated DESC"
+  },
+  "schedule": {
+    "task_id": "work-journal-daily",
+    "cron": "30 9 * * 1-5",
+    "note": "Weekdays 09:30 KST; summarize the previous weekday + plan for today"
+  }
+}

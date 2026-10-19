@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"{{CLAUDE_DIR}}/worklog/bin/wandsol_track_hook.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
