@@ -6,12 +6,63 @@ import filecmp
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 
 
 class InstallError(Exception):
     pass
+
+
+# Token-efficient mode: only these agents' model and effort lines change.
+ECO_AGENTS = {
+    "claude": {
+        "ai-planner.md": ("claude-opus-5-5", "high"),
+        "ai-reviewer.md": ("claude-opus-5-5", "xhigh"),
+        "ai-red-team.md": ("claude-opus-5-5", "xhigh"),
+        "ai-builder.md": ("claude-opus-5-5", "medium"),
+        "ai-loop.md": ("claude-opus-5-5", "low"),
+        "ai-runner.md": ("claude-sonnet-5-5", "low"),
+    },
+    "codex": {
+        "ai-planner.toml": ("gpt-6-sol", "high"),
+        "ai-reviewer.toml": ("gpt-6-sol", "xhigh"),
+        "ai-red-team.toml": ("gpt-6-sol", "xhigh"),
+        "ai-builder.toml": ("gpt-6-sol", "medium"),
+        "ai-loop.toml": ("gpt-6-sol", "low"),
+        "ai-runner.toml": ("gpt-6-luna", "medium"),
+    },
+}
+
+MODEL_LINES = {
+    "claude": (r"^model:.*$", "model: {}", r"^effort:.*$", "effort: {}"),
+    "codex": (
+        r"^model\s*=.*$",
+        'model = "{}"',
+        r"^model_reasoning_effort\s*=.*$",
+        'model_reasoning_effort = "{}"',
+    ),
+}
+
+
+def eco_contents(source, runtime):
+    """Return the agent file with eco model/effort lines, or None to copy as is."""
+    setting = ECO_AGENTS[runtime].get(source.name)
+    if setting is None:
+        return None
+    text = source.read_text(encoding="utf-8")
+    model_pattern, model_line, effort_pattern, effort_line = MODEL_LINES[runtime]
+    for pattern, line, value in (
+        (model_pattern, model_line, setting[0]),
+        (effort_pattern, effort_line, setting[1]),
+    ):
+        text, count = re.subn(
+            pattern, lambda _: line.format(value), text, count=1, flags=re.MULTILINE
+        )
+        if count != 1:
+            raise InstallError(f"cannot find {pattern!r} for eco mode in {source}")
+    return text.encode("utf-8")
 
 
 def safe_path(path):
@@ -125,9 +176,10 @@ def install(args):
     package_root = safe_path(Path(__file__).parent.parent)
     agents_dest, skills_dest = destinations(args)
     pairs = []
+    agent_sources = []
     if args.package in ("operations", "all"):
         bundle_root = require_directory(package_root / args.runtime, args.runtime + " bundle")
-        pairs += source_files(require_directory(bundle_root / "agents", "agents"), agents_dest)
+        agent_sources.append(require_directory(bundle_root / "agents", "agents"))
         pairs += source_files(require_directory(bundle_root / "skills", "skills"), skills_dest)
         pairs += source_files(
             require_directory(package_root / "evaluation-loop" / "skills", "evaluation loop"),
@@ -135,22 +187,30 @@ def install(args):
         )
     if args.package in ("red-team", "all"):
         red_root = package_root / "red-team"
-        pairs += source_files(
-            require_directory(red_root / args.runtime / "agents", "red-team agents"), agents_dest
+        agent_sources.append(
+            require_directory(red_root / args.runtime / "agents", "red-team agents")
         )
         pairs += source_files(require_directory(red_root / "skills", "red-team skill"), skills_dest)
+    entries = [
+        (source, destination, eco_contents(source, args.runtime) if args.mode == "eco" else None)
+        for root in agent_sources
+        for source, destination in source_files(root, agents_dest)
+    ]
+    entries += [(source, destination, None) for source, destination in pairs]
     pending = []
-    for source, raw_destination in pairs:
+    for source, raw_destination, contents in entries:
         destination = check_destination(raw_destination)
         if destination.exists():
-            if not destination.is_file() or not filecmp.cmp(
-                source, destination, shallow=False
-            ):
+            if contents is None:
+                same = destination.is_file() and filecmp.cmp(source, destination, shallow=False)
+            else:
+                same = destination.is_file() and destination.read_bytes() == contents
+            if not same:
                 raise InstallError(
                     f"collision at {destination}; move or remove the existing file and retry"
                 )
         else:
-            pending.append((source, destination))
+            pending.append((source, destination, contents))
 
     settings_update = None
     if args.with_context_hook:
@@ -162,15 +222,20 @@ def install(args):
 
     roots = sorted({agents_dest, skills_dest}, key=str)
     if args.dry_run:
+        print(f"mode: {args.mode}")
         for root in roots:
             print(f"would install: {root}")
         if settings_update:
             print(f"would update: {settings_update[0]}")
         return
 
-    for source, destination in pending:
+    for source, destination, contents in pending:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
+        if contents is None:
+            shutil.copy2(source, destination)
+        else:
+            destination.write_bytes(contents)
+            shutil.copystat(source, destination)
     if settings_update:
         path, contents = settings_update
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -188,6 +253,12 @@ def parse_args():
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--project", metavar="PATH")
     target.add_argument("--user", action="store_true")
+    parser.add_argument(
+        "--mode",
+        choices=("standard", "eco"),
+        default="standard",
+        help="eco swaps agent model/effort lines for token-efficient defaults",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--with-context-hook",

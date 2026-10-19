@@ -90,6 +90,94 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(claude_project.joinpath(".claude/skills/agent-evaluation-loop/SKILL.md").is_file())
         self.assertFalse(codex_project.joinpath(".codex/agents/red-team.txt").exists())
 
+    def write_role_fixtures(self):
+        claude_agents = self.package / "claude" / "agents"
+        (claude_agents / "ai-planner.md").write_text(
+            "---\nname: ai-planner\nmodel: claude-fable-5-1\neffort: high\n---\n\nbody\n",
+            encoding="utf-8",
+        )
+        (claude_agents / "ai-runner.md").write_text(
+            "---\nname: ai-runner\nmodel: claude-sonnet-5-5\neffort: medium\n---\n",
+            encoding="utf-8",
+        )
+        (self.package / "codex" / "agents" / "ai-reviewer.toml").write_text(
+            'name = "ai_reviewer"\nmodel = "gpt-6-astra"\n'
+            'model_reasoning_effort = "xhigh"\ndeveloper_instructions = "x"\n',
+            encoding="utf-8",
+        )
+        (self.package / "codex" / "agents" / "ai-runner.toml").write_text(
+            'model = "gpt-6-luna"\nmodel_reasoning_effort = "high"\n', encoding="utf-8"
+        )
+        for runtime, name, text in (
+            ("claude", "ai-red-team.md", "---\nmodel: claude-fable-5-1\neffort: xhigh\n---\n"),
+            ("codex", "ai-red-team.toml", 'model = "gpt-6-astra"\nmodel_reasoning_effort = "xhigh"\n'),
+        ):
+            (self.package / "red-team" / runtime / "agents" / name).write_text(text, encoding="utf-8")
+
+    def test_eco_mode_swaps_claude_model_and_effort_only(self):
+        self.write_role_fixtures()
+        project = self.root / "eco-claude"
+        result = self.run_installer("claude", "--project", str(project), "--mode", "eco")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        agents = project / ".claude/agents"
+        self.assertEqual(
+            (agents / "ai-planner.md").read_text(),
+            "---\nname: ai-planner\nmodel: claude-opus-5-5\neffort: high\n---\n\nbody\n",
+        )
+        self.assertIn("model: claude-sonnet-5-5\neffort: low\n", (agents / "ai-runner.md").read_text())
+        self.assertEqual((agents / "builder.txt").read_text(), "claude agent\n")
+        rerun = self.run_installer("claude", "--project", str(project), "--mode", "eco")
+        self.assertEqual(rerun.returncode, 0, rerun.stderr)
+
+    def test_eco_mode_swaps_codex_model_and_reasoning_effort(self):
+        self.write_role_fixtures()
+        project = self.root / "eco-codex"
+        result = self.run_installer("codex", "--project", str(project), "--mode", "eco")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        agents = project / ".codex/agents"
+        self.assertEqual(
+            (agents / "ai-reviewer.toml").read_text(),
+            'name = "ai_reviewer"\nmodel = "gpt-6-sol"\n'
+            'model_reasoning_effort = "xhigh"\ndeveloper_instructions = "x"\n',
+        )
+        self.assertEqual(
+            (agents / "ai-runner.toml").read_text(),
+            'model = "gpt-6-luna"\nmodel_reasoning_effort = "medium"\n',
+        )
+
+    def test_standard_mode_is_default_and_copies_unchanged(self):
+        self.write_role_fixtures()
+        project = self.root / "standard"
+        result = self.run_installer("claude", "--project", str(project))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            (project / ".claude/agents/ai-planner.md").read_text(),
+            (self.package / "claude/agents/ai-planner.md").read_text(),
+        )
+        eco = self.run_installer("claude", "--project", str(project), "--mode", "eco")
+        self.assertNotEqual(eco.returncode, 0)
+        self.assertIn("collision", eco.stderr)
+
+    def test_eco_mode_swaps_red_team_agents(self):
+        self.write_role_fixtures()
+        for runtime, name, expected in (
+            ("claude", "ai-red-team.md", "model: claude-opus-5-5\neffort: xhigh\n"),
+            ("codex", "ai-red-team.toml", 'model = "gpt-6-sol"\nmodel_reasoning_effort = "xhigh"\n'),
+        ):
+            project = self.root / ("red-" + runtime)
+            result = self.run_installer(
+                runtime, "--project", str(project), "--package", "red-team", "--mode", "eco"
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(expected, (project / ("." + runtime) / "agents" / name).read_text())
+
+    def test_eco_dry_run_reports_mode(self):
+        project = self.root / "project"
+        result = self.run_installer("codex", "--project", str(project), "--mode", "eco", "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("mode: eco", result.stdout)
+        self.assertFalse(project.exists())
+
     def test_red_team_installs_independently_for_both_runtimes(self):
         for runtime, skill_root in (("claude", ".claude"), ("codex", ".agents")):
             project = self.root / runtime

@@ -16,6 +16,32 @@
 
 검증의 “한 단계 높게”는 기획의 `high`를 기준으로 한다. 이 표는 이 저장소의 운영 선택이다. effort 이름은 모델 세대마다 같은 사고량이 아니므로 모델을 바꾸면 재보정한다([effort 문서](https://platform.claude.com/docs/en/build-with-claude/effort)). 모델 지원 여부는 [공식 근거](docs/harness.md)와 실행 계정에서 확인한다. 이용할 수 없는 모델을 임의로 바꾸지 않는다.
 
+최고가 모델 없이 추론만 조정하는 구성은 [토큰 가성비 모드](#토큰-가성비-모드)에 있다.
+
+## 토큰 가성비 모드
+
+최신 모델이 충분히 좋다는 가정 아래 최고가 모델(Fable 5.1·Astra)을 빼고 추론만 조정하는 선택형 구성이다. 역할 본문은 같고, 설치할 때 역할 파일의 모델·추론 줄만 바꾼다.
+
+| 역할 | Claude Code | 추론 | Codex | 추론 |
+| --- | --- | --- | --- | --- |
+| 기획·심층 판단 | Opus 5.5 · `claude-opus-5-5` | high | Sol · `gpt-6-sol` | high |
+| 빌더 | Opus 5.5 · `claude-opus-5-5` | medium | Sol · `gpt-6-sol` | medium |
+| 실행 보조 | Sonnet 5.5 · `claude-sonnet-5-5` | low | Luna · `gpt-6-luna` | medium |
+| 독립 검증 | Opus 5.5 · 새 서브에이전트 | **xhigh** | Sol · 새 서브에이전트 | **xhigh** |
+| 레드팀 | Opus 5.5 · `ai-red-team` | **xhigh** | Sol · `ai_red_team` | **xhigh** |
+| 평가 기록·개선 제안 | Opus 5.5 · `ai-loop` | low | Sol · `ai_loop` | low |
+
+검증을 기획보다 한 단계 높게 두는 규칙은 그대로다. `--mode eco`를 붙여 설치하며, 다른 옵션과 함께 쓸 수 있다.
+
+```bash
+python3 scripts/install.py claude --user --mode eco
+python3 scripts/install.py codex --user --mode eco
+python3 scripts/install.py claude --user --package red-team --mode eco
+claude --model claude-opus-5-5 --effort medium
+```
+
+이미 standard로 설치한 역할 파일은 내용이 달라 충돌로 중단된다. 기존 파일을 옮긴 뒤 다시 설치한다. 기획 판단 충돌이 잦거나 리뷰가 놓치는 결함이 늘면 standard로 돌아간다. 절감률은 아직 측정 전이다.
+
 ## Claude Code 등록
 
 Python 3.9 이상이 필요하다. 저장소를 받은 뒤 사용할 플랫폼만 설치한다.
