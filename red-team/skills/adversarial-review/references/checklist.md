@@ -1,52 +1,52 @@
-# 검토 체크리스트
+# Review checklist
 
-## 공통 준비
+## Common preparation
 
-- 원래 요구사항과 사용자가 승인한 변경을 우선 기준으로 삼는다.
-- 현재 파일과 안정된 diff를 읽고 검토 범위를 고정한다.
-- 주장된 테스트 통과는 명령, 환경, 결과가 있는지 확인한다.
-- 최신 사실은 공식 1차 출처, 게시·변경일, 확인일을 기록한다.
-- 관찰과 추론을 구분한다. 증거가 없으면 `needs_evidence`다.
-- 같은 결함의 증상은 하나로 묶고 발견사항 수를 채우지 않는다.
+- Use the original requirements and user-approved changes as the primary baseline.
+- Read the current files and the stable diff, and fix the review scope.
+- For claimed test passes, check that the command, environment, and result exist.
+- For current facts, record the official primary source, publish/change date, and check date.
+- Separate observation from inference. Without evidence, it is `needs_evidence`.
+- Group symptoms of the same defect into one, and do not pad the number of findings.
 
-## 제품 모드
+## Product mode
 
-- 사용자가 실제로 겪는 문제는 무엇인가?
-- 목표 사용자는 누구이며 다른 집단의 요구를 잘못 대신 측정하지 않았는가?
-- 문제 수요를 뒷받침하는 관찰, 인터뷰, 행동 데이터가 있는가?
-- 성공 지표가 실제 성과인가, 쉽게 좋아 보이는 대리 지표인가?
-- 비용, 시간, 정책, 접근성, 운영 한계를 빠뜨리지 않았는가?
-- 같은 문제를 더 단순한 대안으로 해결할 수 있는가?
-- 핵심 가정을 거짓으로 판정할 관찰은 무엇인가?
-- 의도한 이득과 함께 오용, 역선택, 보상 해킹의 반례가 있는가?
+- What problem do users actually face?
+- Who are the target users, and is another group's need being measured in their place by mistake?
+- Are there observations, interviews, or behavioral data supporting demand for the problem?
+- Is the success metric a real outcome, or a proxy metric that easily looks good?
+- Are cost, time, policy, accessibility, or operational limits missing?
+- Can the same problem be solved with a simpler alternative?
+- What observation would prove a core assumption false?
+- Alongside the intended benefit, are there counterexamples of misuse, adverse selection, or reward hacking?
 
-## 코드 모드
+## Code mode
 
-- 원래 요구사항과 현재의 안정된 diff를 항목별로 대응시킨다.
-- 정상 경로뿐 아니라 빈 값, 경계값, 잘못된 입력, 부분 실패를 확인한다.
-- 오류 처리, 재시도, 중단 후 복구, 관측 가능성을 확인한다.
-- 동시성, 공유 상태, 캐시, 순서 의존성, 멱등성을 확인한다.
-- 파일·네트워크·프로세스·사용자 입력의 신뢰 경계를 확인한다.
-- 기존 동작과 호환성, 회귀 테스트, 실패 후 통과 테스트를 확인한다.
-- “테스트 통과” 주장은 실제 명령과 종료 상태를 확인한다. 실행할 수 없으면 증거를 요청한다.
-- 테스트가 구현 세부만 고정하거나 우회 가능한 대리 조건을 채점하지 않는지 확인한다.
+- Map the original requirements to the current stable diff item by item.
+- Check not just the happy path but empty values, boundary values, invalid input, and partial failure.
+- Check error handling, retries, recovery after interruption, and observability.
+- Check concurrency, shared state, caches, ordering dependencies, and idempotency.
+- Check trust boundaries for files, network, processes, and user input.
+- Check compatibility with existing behavior, regression tests, and fail-then-pass tests.
+- For "tests pass" claims, check the actual command and exit status. If it cannot be run, request evidence.
+- Check that tests do not merely pin implementation details or grade a bypassable proxy condition.
 
-## 심각도와 상태
+## Severity and status
 
-심각도는 이 프로젝트에 맞춘 3단계 영향 분류다. 공식 표준의 동일한 척도라고 부르지 않는다.
+Severity is a 3-level impact classification tailored to this project. Do not call it an equivalent scale from an official standard.
 
-- `상`: 핵심 사용자 목표가 불가능해지거나 광범위·중대한 데이터 손실, 무단 접근, 보안 피해가 발생한다.
-- `중`: 일부 사용자·조건에서 요구사항이나 제약을 충족하지 못하지만 영향이 제한되고 우회·보완이 가능하다. 기획의 누락된 제약이나 특정 경로의 기능 회귀가 여기에 해당할 수 있다.
-- `하`: 표현, 유지보수성, 좁은 엣지 케이스 등 제한적이고 비차단인 영향이다.
+- `high`: The core user goal becomes impossible, or broad/serious data loss, unauthorized access, or security damage occurs.
+- `medium`: Requirements or constraints are not met for some users or conditions, but impact is limited and a workaround or mitigation is possible. A missing constraint in the plan or a functional regression on a specific path can fall here.
+- `low`: Limited, non-blocking impact such as wording, maintainability, or narrow edge cases.
 
-각 판정에 현실적인 발생 가능성과 영향 범위를 문장으로 설명한다. 증거 수준은 별도 신뢰도로 표시한다.
+For each verdict, explain realistic likelihood and blast radius in a sentence. Mark the evidence level as a separate confidence.
 
-- `confirmed`: 현재 자료로 조건과 영향이 재현되거나 직접 입증된다.
-- `needs_evidence`: 가능한 반례지만 관찰·실행 증거가 부족하다.
-- `refuted`: 확인 결과 가설이 성립하지 않는다.
+- `confirmed`: With current material, the condition and impact are reproduced or directly proven.
+- `needs_evidence`: A possible counterexample, but observation or execution evidence is lacking.
+- `refuted`: On checking, the hypothesis does not hold.
 
-## 종료 조건
+## Exit conditions
 
-- 구체적 발견사항이 없으면 “확인한 범위에서 발견사항 없음”이라고 쓴다.
-- 확인하지 못한 범위와 남은 증거 요청을 쓴다.
-- “안전하다”, “완벽하다”, “문제가 없다”처럼 범위를 넘는 보증을 하지 않는다.
+- If there are no concrete findings, write "No findings within the checked scope."
+- Write the unchecked scope and remaining evidence requests.
+- Do not give assurances beyond scope, such as "it is safe," "it is perfect," or "there are no problems."

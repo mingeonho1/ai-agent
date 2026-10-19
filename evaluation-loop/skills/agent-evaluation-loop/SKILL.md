@@ -1,43 +1,43 @@
 ---
 name: agent-evaluation-loop
-description: 구현 품질을 반복 평가하거나 근거 기반 개선 중단 조건이 필요할 때 사용한다. 독립 리뷰 점수표를 고정 루브릭으로 검증·집계하고 최대 3회의 개선 기록을 관리한다.
+description: Use when implementation quality needs repeated evaluation or evidence-based stop conditions for improvement. Validates and aggregates independent review scorecards against a fixed rubric and manages up to 3 rounds of improvement records.
 ---
 
 # Agent Evaluation Loop
 
-메인 오케스트레이터가 이 스킬을 사용한다. 빌더와 독립 리뷰어는 기존 역할로 실행하고, `ai-loop`는 리뷰 점수표를 기록해 다음 한 가지 수정 또는 증거 보강 작업만 제안한다. `ai-loop`는 하위 agent를 호출하거나 소스를 수정하거나 점수를 만들지 않는다.
+The main orchestrator uses this skill. The builder and independent reviewer run in their existing roles, and `ai-loop` records the review scorecard and proposes only one next fix or evidence addition. `ai-loop` does not call sub-agents, modify source, or create scores.
 
-## 순서
+## Order
 
-1. 새 baseline 전에 플래너 또는 `ai-loop`가 프로젝트의 현재 교훈 중 이번 범위·조건에 맞는 항목을 읽고 현재 작업의 필수 기준으로 변환한다. 그 뒤 원래 요구사항, 필수 기준, [rubric.md](references/rubric.md)의 차원·가중치·앵커·통과 기준을 고정한다. 변경하려면 새 `evaluation_id`와 1회차 baseline으로 다시 시작한다.
-2. 빌더가 후보를 만들고 검증 증거를 고정한 뒤, 최고 등급의 독립 리뷰어를 상속 없는 새 context에서 실행한다. 리뷰어에게 원래 요구사항, 필수 기준, 고정 루브릭·체크리스트의 실제 파일 경로, 현재 후보와 증거만 주며 이전 점수와 반복 기록은 보여주지 않는다.
-3. 리뷰어는 차원별 `0..4` 또는 `null`, 근거, 필수 기준 결과, 발견 사항을 반환한다. 루브릭이나 필수 기준 판단에 꼭 필요한 증거가 없을 때만 finding을 `needs_evidence`로 표시한다. 선택적 가설이나 추가 탐색 아이디어는 이 상태로 넣지 않는다. 모르는 점수는 `null`로 두고 `NEEDS_EVIDENCE`로 처리한다.
-4. `ai-loop`가 입력 JSON을 만들고 아래 도구로 검증·집계·추가 기록한다. 도구는 LLM이나 네트워크를 호출하지 않는다.
+1. Before a new baseline, the planner or `ai-loop` reads the project's current lessons that match this scope and conditions and turns them into required criteria for the current task. Then fix the original requirements, required criteria, and the dimensions, weights, anchors, and pass criteria from [rubric.md](references/rubric.md). To change them, restart with a new `evaluation_id` and a round-1 baseline.
+2. After the builder produces a candidate and freezes verification evidence, run the top-tier independent reviewer in a fresh, non-inherited context. Give the reviewer only the original requirements, required criteria, the actual file paths of the fixed rubric/checklist, and the current candidate and evidence; do not show previous scores or iteration records.
+3. The reviewer returns `0..4` or `null` per dimension, evidence, required-criteria results, and findings. Mark a finding `needs_evidence` only when evidence essential to a rubric or required-criteria judgment is missing. Do not put optional hypotheses or further exploration ideas in this status. Leave unknown scores as `null` and treat them as `NEEDS_EVIDENCE`.
+4. `ai-loop` builds the input JSON and validates, aggregates, and appends the record with the tool below. The tool does not call an LLM or the network.
 
 ```sh
 python3 <agent-evaluation-loop-dir>/scripts/evaluate.py --input round.json --history evaluation-history.jsonl
 ```
 
-5. PASS가 아니면 기록의 `decision`과 `fix_targets`에서 근거가 있는 한 가지 수정 또는 증거 보강만 선택한다. 숫자를 올리기 위한 재시도, 통과 기준 완화, 테스트 제거를 금지한다.
-6. baseline을 포함해 최대 3회만 평가한다. 결함 해결이나 새 증거가 없는 회차가 2회 연속이면 즉시 `STOP_NOT_COMPLETE`로 종료한다. 한도를 소진해도 통과하지 못하면 완료로 보고하지 않는다.
-7. 독립 리뷰로 확인되고 수정된 결함은 최소 재현 입력과 기대 결과를 회귀 테스트 또는 평가 사례로 승격하고 아래 프로젝트 교훈에도 남긴다. 현재 작업 범위를 넘으면 후속 항목으로 기록하며, 같은 평가의 고정 루브릭을 바꾸지는 않는다.
+5. If not PASS, choose only one evidence-based fix or evidence addition from the record's `decision` and `fix_targets`. Retrying to raise numbers, loosening pass criteria, and removing tests are forbidden.
+6. Evaluate at most 3 rounds, including baseline. If 2 consecutive rounds bring no defect resolution or new evidence, stop immediately with `STOP_NOT_COMPLETE`. If the limit is used up without passing, do not report it as complete.
+7. Promote defects confirmed by independent review and fixed into regression tests or evaluation cases with a minimal reproduction input and expected result, and also record them in the project lessons below. If this goes beyond the current task scope, record it as a follow-up item; do not change the same evaluation's fixed rubric.
 
-## 프로젝트 교훈
+## Project lessons
 
-기본 경로는 프로젝트의 `evals/lessons/`이며 작업 계약에서 다른 프로젝트 내부 경로를 정할 수 있다. 교훈은 [lesson.template.md](templates/lesson.template.md) 형식으로 다음 사실만 기록한다.
+The default path is the project's `evals/lessons/`, and the task contract can set another in-project path. Lessons use the [lesson.template.md](templates/lesson.template.md) format and record only these facts.
 
-- 적용 범위와 발생 조건
-- 검증된 실패와 증거
-- 수정 원칙
-- 최소 재현 절차와 기대 결과
-- `current` 또는 `superseded` 상태와 유효 조건
+- Scope and trigger conditions
+- Verified failure and evidence
+- Fix principle
+- Minimal reproduction steps and expected result
+- `current` or `superseded` status and validity conditions
 
-점수, 승인 과정, 대화, 비공개 사고 과정은 기록하지 않는다. 교훈은 해당 작업·프로젝트 안에서만 유지하며 전역 개인 메모리로 복사하지 않는다. 새 baseline에서는 관련된 `current` 교훈만 골라 현재 필수 검사로 바꾼다. 새 독립 리뷰어에게는 현재 요구사항, 이렇게 만든 고정 검사, 현재 후보와 증거만 전달하며 교훈 기록 자체나 과거 점수·반복 이력은 전달하지 않는다.
+Do not record scores, the approval process, conversations, or private reasoning. Lessons stay within that task/project and are not copied into global personal memory. At a new baseline, pick only the relevant `current` lessons and turn them into current required checks. Give the new independent reviewer only the current requirements, the fixed checks built this way, and the current candidate and evidence; do not pass the lesson records themselves or past scores and iteration history.
 
-## 통과와 기록
+## Pass and records
 
-기본 PASS는 총점 85 이상, 모든 알려진 차원 3 이상, 모든 필수 기준 통과, 미해결 high·medium 발견 없음, 리뷰 격리와 모델 라우팅 확인을 모두 요구한다. 총점이 높아도 필수 기준 실패나 미해결 high·medium 발견은 통과를 막는다.
+Default PASS requires all of: total score 85 or higher, every known dimension 3 or higher, all required criteria passing, no unresolved high/medium findings, and confirmed review isolation and model routing. Even with a high total, a required-criteria failure or an unresolved high/medium finding blocks passing.
 
-각 JSONL 기록에는 작업·후보·증거 fingerprint, 루브릭 버전, 실제 모델과 effort, 근거, 원점수, 결정, 수정 목표, 측정된 token·실행 시간·비용을 남긴다. 측정하지 않은 값은 `null`을 쓴다. 비공개 사고 과정은 수집하지 않는다. 같은 평가의 같은 회차는 덮어쓰지 않고 거부한다.
+Each JSONL record keeps the task/candidate/evidence fingerprints, rubric version, actual model and effort, evidence, raw scores, decision, fix targets, and measured tokens, run time, and cost. Use `null` for unmeasured values. Private reasoning is not collected. The same round of the same evaluation is rejected rather than overwritten.
 
-입력 구조는 [round-input.template.json](templates/round-input.template.json), 리뷰 출력 형식은 [reviewer-scorecard.md](templates/reviewer-scorecard.md)를 사용한다. [synthetic-baseline.json](examples/synthetic-baseline.json)은 동작 설명용 합성 예시이며 측정 결과가 아니다.
+Use [round-input.template.json](templates/round-input.template.json) for the input structure and [reviewer-scorecard.md](templates/reviewer-scorecard.md) for the review output format. [synthetic-baseline.json](examples/synthetic-baseline.json) is a synthetic example to illustrate behavior, not a measured result.

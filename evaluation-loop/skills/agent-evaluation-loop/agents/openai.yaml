@@ -1,6 +1,6 @@
 interface:
   display_name: "Agent Evaluation Loop"
-  short_description: "독립 리뷰 점수표로 개선 회차와 중단 조건 관리"
+  short_description: "Manage improvement rounds and stop conditions with independent review scorecards"
   default_prompt: "Use $agent-evaluation-loop to score an independently reviewed candidate and record the next bounded improvement step."
 policy:
   allow_implicit_invocation: true

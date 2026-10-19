@@ -4,25 +4,25 @@ status: current
 superseded_by: null
 ---
 
-# 적용 범위와 조건
+# Scope and conditions
 
-[이 교훈이 적용되는 경로, 구성, 입력 또는 실행 조건]
+[Paths, configuration, inputs, or run conditions this lesson applies to]
 
-# 검증된 실패
+# Verified failure
 
-[관찰된 실패 동작과 영향]
+[Observed failure behavior and impact]
 
-# 수정 원칙
+# Fix principle
 
-[다시 적용할 수 있는 최소 원칙]
+[Minimal principle that can be reapplied]
 
-# 재현과 기대 결과
+# Reproduction and expected result
 
-- 재현: [최소 입력과 실행 절차]
-- 기대 결과: [관찰 가능한 결과]
+- Reproduction: [minimal input and run steps]
+- Expected result: [observable result]
 
-# 증거와 유효성
+# Evidence and validity
 
-- 증거: [테스트, 로그 또는 파일의 프로젝트 내부 경로]
-- 유효 조건: [계속 적용되는 버전 또는 조건]
-- 마지막 확인: [측정한 날짜 또는 변경 식별자, 없으면 null]
+- Evidence: [in-project path of the test, log, or file]
+- Validity condition: [version or condition under which it still applies]
+- Last checked: [measured date or change identifier, or null if none]

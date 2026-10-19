@@ -1,53 +1,53 @@
-# 작업 계약
+# Task contract
 
-여러 역할을 호출하기 전에 다음 형식으로 작업별 계약을 만든다. 각 계약은 전역 진행 상황이 아니라 하나의 작업 경로만 설명한다.
+Before calling multiple roles, create a per-task contract in the following format. Each contract describes only one task path, not global progress.
 
 ```text
-목표: [한 문장의 결과]
-원래 요구사항: [검토 가능한 원문 또는 정확한 요약]
-수용 기준: [관찰 가능한 조건]
-입력: [필요한 파일, diff, 사실]
-담당 역할: [ai_planner | ai_builder | ai_runner | ai_reviewer]
-소유 경로: [읽거나 쓸 수 있는 경로]
-작업: [제한된 판단, 구현, 명령 또는 리뷰]
-산출: [패치, 검증 결과 또는 지적 목록]
-중단: [완료 또는 보고해야 할 차단 조건]
+Goal: [one-sentence outcome]
+Original requirements: [reviewable original text or an exact summary]
+Acceptance criteria: [observable conditions]
+Inputs: [needed files, diff, facts]
+Assigned role: [ai_planner | ai_builder | ai_runner | ai_reviewer]
+Owned paths: [paths that may be read or written]
+Work: [bounded judgment, implementation, command, or review]
+Output: [patch, verification result, or list of findings]
+Stop: [completion or blocking condition to report]
 ```
 
-## 분할과 합류
+## Split and join
 
-- 서로 다른 파일, 독립 조사, 독립 검증은 병렬로 맡길 수 있다.
-- 같은 파일을 두 작성자에게 주지 않는다. 러너와 리뷰어는 소스 작성자가 아니다.
-- 동시에 실행할 수 있는 역할은 최대 3개이며, 리뷰어도 이 수에 포함한다.
-- 병렬 결과는 한 번 합류시켜 수용 기준에 반영한다. 충돌하는 판단만 플래너에게 다시 보낸다.
+- Different files, independent investigations, and independent verifications can be assigned in parallel.
+- Do not give the same file to two writers. The runner and reviewer are not source writers.
+- At most 3 roles can run concurrently, and the reviewer counts toward this number.
+- Join parallel results once and reflect them in the acceptance criteria. Send only conflicting judgments back to the planner.
 
-## 리뷰 계약
+## Review contract
 
-실질적 작업의 완료 직전에는 안정화된 파일을 상속되지 않은 새 `ai_reviewer` 인스턴스에 보낸다. Codex CLI에서는 매 검토마다 `spawn_agent`로 새 스레드를 만들고, 이전 리뷰어 스레드를 `resume_agent`·`send_input`으로 재개하지 않는다. Responses API 멀티에이전트를 직접 쓸 때는 `fork_turns`로 대화를 상속하지 않는다. 새 비상속 컨텍스트임을 확인할 수 없으면 독립 검증 미완료로 보고하고 완료 처리하지 않는다.
+Right before completing substantive work, send the stabilized files to a fresh, non-inherited `ai_reviewer` instance. In Codex CLI, create a new thread with `spawn_agent` for every review, and do not resume a previous reviewer thread with `resume_agent` or `send_input`. When using Responses API multi-agent directly, do not inherit the conversation via `fork_turns`. If you cannot confirm a fresh, non-inherited context, report independent verification as incomplete and do not mark the work complete.
 
 ```text
-원래 요구사항: [원문 또는 정확한 요약]
-수용 기준: [완료 조건]
-고정 평가 루브릭·체크리스트 파일: [평가 루프를 사용할 때 실제 파일 경로와 버전]
-현재 diff: [검토 대상]
-현재 파일: [최종 상태 경로]
-검증 증거: [명령과 결과]
-요청: 버그, 회귀, 누락, 잘못된 가정을 영향·근거·경로와 함께 보고
+Original requirements: [original text or exact summary]
+Acceptance criteria: [completion conditions]
+Fixed evaluation rubric/checklist files: [actual file paths and version when using the evaluation loop]
+Current diff: [review target]
+Current files: [final-state paths]
+Verification evidence: [commands and results]
+Request: report bugs, regressions, omissions, and wrong assumptions with impact, evidence, and path
 ```
 
-빌더와 오케스트레이터의 대화·추론·결론, 이전 점수와 반복 기록은 넣거나 상속하지 않는다. 지적을 수정하면 이전 리뷰어 스레드를 `resume_agent`로 재개하지 않고 또 다른 새 비상속 리뷰 인스턴스를 사용한다. 재검토에도 원래 요구사항, 수용 기준과 같은 고정 루브릭을 전달하고, 변경된 diff, 영향을 받는 현재 파일, 갱신된 검증 증거를 함께 제공한다. 재검토 범위는 수정 사항과 그 영향으로 한정한다. 지정 리뷰어 모델을 쓸 수 없을 때는 더 가벼운 모델로 조용히 대체하지 않는다.
+Do not include or inherit the builder's or orchestrator's conversation, reasoning, or conclusions, or previous scores and iteration records. After fixing findings, do not resume the previous reviewer thread with `resume_agent`; use yet another fresh, non-inherited review instance. Re-reviews also get the original requirements, acceptance criteria, and the same fixed rubric, along with the changed diff, affected current files, and updated verification evidence. Limit re-review scope to the fixes and their impact. When the designated reviewer model is unavailable, do not silently substitute a lighter model.
 
-## 평가 회차 계약
+## Evaluation round contract
 
-평가 루프를 사용하면 프로젝트 내부 교훈 경로를 정한다. 기본값은 `evals/lessons/`이다. 새 baseline 전에 planner 또는 `ai_loop`가 적용 범위와 조건이 맞고 상태가 `current`인 교훈을 읽어 현재 필수 검사로 변환한다. 그 뒤 필수 기준과 루브릭을 고정하고 작업별 JSONL 기록의 작성자를 `ai_loop` 한 명으로 정한다. `ai_loop`에는 설치된 평가 도구와 루브릭, 작업별 ledger의 절대 경로를 명시한다. 각 회차의 새 reviewer는 차원별 원점수와 근거, 필수 기준 결과, severity와 confidence가 분리된 발견 사항을 반환한다. `ai_loop`에는 이 점수표, 작업·후보·증거 fingerprint, 실제 모델·effort, 측정한 token·실행 정보만 전달한다. 개인 대화나 비공개 사고 과정은 기록하지 않는다. 다음 회차에도 원래 요구사항과 같은 루브릭의 실제 파일 경로를 전달하며 이전 점수는 숨긴다.
+When using the evaluation loop, set an in-project lessons path. The default is `evals/lessons/`. Before a new baseline, the planner or `ai_loop` reads lessons whose scope and conditions match and whose status is `current`, and turns them into current required checks. Then fix the required criteria and rubric and make `ai_loop` the single writer of the per-task JSONL record. Give `ai_loop` the absolute paths of the installed evaluation tool, rubric, and per-task ledger. Each round's new reviewer returns raw scores and evidence per dimension, required-criteria results, and findings with severity and confidence kept separate. Pass `ai_loop` only this scorecard, the task/candidate/evidence fingerprints, the actual model/effort, and measured token/run info. Do not record private conversations or private reasoning. In the next round, pass the original requirements and the actual file paths of the same rubric, and hide previous scores.
 
-확인되고 수정된 결함은 적용 범위와 조건, 검증된 실패, 수정 원칙, 재현과 기대 결과, 증거, `current` 또는 `superseded` 상태를 프로젝트 교훈에 기록한다. 점수와 승인 과정은 넣지 않고 전역 개인 메모리로 복사하지 않는다. 새 reviewer에는 교훈 파일이 아니라 그 교훈에서 만든 현재의 고정 검사만 전달한다.
+For confirmed and fixed defects, record in the project lessons: scope and conditions, the verified failure, the fix principle, reproduction and expected result, evidence, and `current` or `superseded` status. Do not include scores or the approval process, and do not copy them into global personal memory. Pass a new reviewer not the lesson file but only the current fixed checks derived from it.
 
-## 인수인계
+## Handoff
 
 ```text
-작업 경로: [경로]
-결과: [결정, 변경 또는 관찰]
-검증: [해당하는 경우]
-열린 항목: [없음 또는 구체적인 하나]
+Task path: [path]
+Result: [decision, change, or observation]
+Verification: [if applicable]
+Open items: [none, or one specific item]
 ```

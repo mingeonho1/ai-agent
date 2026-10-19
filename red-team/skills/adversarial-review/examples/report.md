@@ -1,33 +1,33 @@
-# 합성 예시 — 실제 제품이나 저장소의 발견사항이 아님
+# Synthetic example — not findings from a real product or repository
 
-아래 내용은 출력 형식만 보여 주기 위해 만든 가상 결제 기능 사례다. 실제 결함, 실행 결과 또는 조사 증거로 인용하면 안 된다.
+The following is a hypothetical payment feature case made only to show the output format. Do not cite it as a real defect, execution result, or research evidence.
 
-## 검토 정보
+## Review info
 
-- 모드: 제품 + 코드
-- 범위: 가상의 결제 재시도 요구사항과 가상 diff
-- 기준 시점: 2026-09-17
-- 증거: 가상 요구사항 R1, 가상 테스트 로그 T1
-- 독립성: 상속 없는 읽기 전용 인스턴스라고 가정한 합성 예시
+- Mode: product + code
+- Scope: hypothetical payment retry requirement and hypothetical diff
+- Reference date: 2026-09-17
+- Evidence: hypothetical requirement R1, hypothetical test log T1
+- Independence: synthetic example assumed to be a non-inherited read-only instance
 
 ## AR-001
 
-- 대상 요구사항: R1 “네트워크 오류 뒤 결제를 안전하게 재시도한다.”
-- 반증 가설: 재시도가 동일 주문을 두 번 청구할 수 있다.
-- 발생 조건: 첫 요청이 결제사에는 반영됐지만 응답만 유실된 뒤 사용자가 재시도한다.
-- 관찰 증거 또는 누락 증거: 가상 diff에는 멱등성 키가 없고, T1은 응답 전 유실을 다루지 않는다. 실제 실행 증거는 없다.
-- 영향: 중복 청구 가능성을 배제하지 못한다.
-- 심각도: 중
-- 발생 가능성과 영향 범위: 간헐적 네트워크 오류에서만 가능하지만 영향을 받는 주문은 금전 정정이 필요하다.
-- 신뢰도: 중간
-- 상태: needs_evidence
-- 반증 조건 또는 재검증 방법: 동일 주문 키로 응답 유실을 재현해 결제 원장이 한 건인지 확인한다.
-- 가장 작은 완화책: 먼저 해당 실패 경로의 회귀 테스트와 원장 조회 증거를 추가한다.
+- Target requirement: R1 "Safely retry payment after a network error."
+- Falsification hypothesis: A retry can charge the same order twice.
+- Trigger condition: The first request was applied at the payment provider but only the response was lost, and then the user retries.
+- Observed evidence or missing evidence: The hypothetical diff has no idempotency key, and T1 does not cover loss before the response. There is no real execution evidence.
+- Impact: The possibility of a duplicate charge cannot be ruled out.
+- Severity: medium
+- Likelihood and blast radius: Possible only on intermittent network errors, but affected orders need a monetary correction.
+- Confidence: medium
+- Status: needs_evidence
+- Refutation condition or re-verification method: Reproduce response loss with the same order key and confirm the payment ledger has one entry.
+- Smallest mitigation: First add a regression test for that failure path and ledger lookup evidence.
 
-## 요약
+## Summary
 
-- 확인한 범위: 가상 R1과 T1
-- 확인하지 못한 범위: 실제 결제사 멱등성 보장, 운영 원장
-- 열린 증거 요청: 응답 유실 통합 테스트 결과
+- Checked scope: hypothetical R1 and T1
+- Unchecked scope: the real payment provider's idempotency guarantee, the production ledger
+- Open evidence requests: integration test result for response loss
 
-이 예시는 결함을 확정하지 않는다. 추가 증거가 가설을 반박하면 상태를 `refuted`로 바꾼다.
+This example does not confirm a defect. If further evidence refutes the hypothesis, change the status to `refuted`.

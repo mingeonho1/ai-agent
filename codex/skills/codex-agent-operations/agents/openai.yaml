@@ -1,6 +1,6 @@
 interface:
   display_name: "Codex Agent Operations"
-  short_description: "모델별 Codex 역할로 구현과 독립 리뷰를 조율"
+  short_description: "Coordinate implementation and independent review across model-specific Codex roles"
   default_prompt: "Use $codex-agent-operations to assign this task to the configured Codex roles with clear file ownership and independent review."
 policy:
   allow_implicit_invocation: true

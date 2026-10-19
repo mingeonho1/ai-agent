@@ -1,37 +1,41 @@
 # AI Agent
 
-**기획·구현·검증을 각자 맞는 모델에게 맡기고, 평가 근거를 다음 개선에 남기려고 만든 Claude Code / Codex 설정 모음이다.**
+> 한국어 사용자: 문서는 영어로 작성돼 있으며, 에이전트는 사용자가 쓰는 언어로 답한다.
 
-기획은 `high`, 구현은 `medium`, 단순 실행은 각 모델의 공식 권장값(Sonnet 5.5 `medium`, Luna `high`)으로 둔다. 결과를 판단할 때는 별도의 최고 모델 서브에이전트를 `xhigh`로 실행한다. 작업한 에이전트의 설명을 그대로 믿는 대신, 요구사항과 실제 변경 파일부터 다시 확인하게 했다.
+**A set of Claude Code / Codex settings that hands planning, building, and verification to the model that fits each job, and keeps evaluation evidence for the next improvement.**
 
-## 모델 배치
+Planning runs at `high`, building at `medium`, and simple execution at each model's officially recommended level (Sonnet 5.5 `medium`, Luna `high`). Results are judged by a separate top-model subagent run at `xhigh`. Instead of trusting the working agent's explanation, the reviewer re-checks the requirements and the actual changed files first.
 
-| 역할 | Claude Code | 추론 | Codex | 추론 |
+The desktop session mission-control kit lives in a separate repo: [claudi](https://github.com/mingeonho1/claudi).
+
+## Model assignment
+
+| Role | Claude Code | Effort | Codex | Effort |
 | --- | --- | --- | --- | --- |
-| 기획·심층 판단 | **Fable 5.1** · `claude-fable-5-1` | high | **Astra** · `gpt-6-astra` | high |
-| 빌더 | Opus 5.5 · `claude-opus-5-5` | medium | Sol · `gpt-6-sol` | medium |
-| 실행 보조 | Sonnet 5.5 · `claude-sonnet-5-5` | medium | Luna · `gpt-6-luna` | high |
-| 독립 검증 | **Fable 5.1** · 새 서브에이전트 | **xhigh** | **Astra** · 새 서브에이전트 | **xhigh** |
-| 평가 기록·개선 제안 | Opus 5.5 · `ai-loop` | medium | Sol · `ai_loop` | medium |
+| Planning · deep judgment | **Fable 5.1** · `claude-fable-5-1` | high | **Astra** · `gpt-6-astra` | high |
+| Builder | Opus 5.5 · `claude-opus-5-5` | medium | Sol · `gpt-6-sol` | medium |
+| Execution helper | Sonnet 5.5 · `claude-sonnet-5-5` | medium | Luna · `gpt-6-luna` | high |
+| Independent verification | **Fable 5.1** · fresh subagent | **xhigh** | **Astra** · fresh subagent | **xhigh** |
+| Evaluation record · improvement proposals | Opus 5.5 · `ai-loop` | medium | Sol · `ai_loop` | medium |
 
-검증의 “한 단계 높게”는 기획의 `high`를 기준으로 한다. 이 표는 이 저장소의 운영 선택이다. effort 이름은 모델 세대마다 같은 사고량이 아니므로 모델을 바꾸면 재보정한다([effort 문서](https://platform.claude.com/docs/en/build-with-claude/effort)). 모델 지원 여부는 [공식 근거](docs/harness.md)와 실행 계정에서 확인한다. 이용할 수 없는 모델을 임의로 바꾸지 않는다.
+"One level higher" for verification is measured against planning's `high`. This table is this repo's operating choice. Effort names do not mean the same amount of thinking across model generations, so recalibrate when you change models ([effort docs](https://platform.claude.com/docs/en/build-with-claude/effort)). Check model support in the [official sources](docs/harness.md) and on the account you run. Do not silently swap a model you cannot use.
 
-최고가 모델 없이 추론만 조정하는 구성은 [토큰 가성비 모드](#토큰-가성비-모드)에 있다.
+A setup that drops the top-tier models and only tunes effort is in [Token-efficient mode](#token-efficient-mode).
 
-## 토큰 가성비 모드
+## Token-efficient mode
 
-최신 모델이 충분히 좋다는 가정 아래 최고가 모델(Fable 5.1·Astra)을 빼고 추론만 조정하는 선택형 구성이다. 역할 본문은 같고, 설치할 때 역할 파일의 모델·추론 줄만 바꾼다.
+An optional setup that assumes current models are good enough, drops the top-tier models (Fable 5.1 · Astra), and only tunes effort. Role bodies are the same; install only rewrites the model and effort lines of the role files.
 
-| 역할 | Claude Code | 추론 | Codex | 추론 |
+| Role | Claude Code | Effort | Codex | Effort |
 | --- | --- | --- | --- | --- |
-| 기획·심층 판단 | Opus 5.5 · `claude-opus-5-5` | high | Sol · `gpt-6-sol` | high |
-| 빌더 | Opus 5.5 · `claude-opus-5-5` | medium | Sol · `gpt-6-sol` | medium |
-| 실행 보조 | Sonnet 5.5 · `claude-sonnet-5-5` | low | Luna · `gpt-6-luna` | medium |
-| 독립 검증 | Opus 5.5 · 새 서브에이전트 | **xhigh** | Sol · 새 서브에이전트 | **xhigh** |
-| 레드팀 | Opus 5.5 · `ai-red-team` | **xhigh** | Sol · `ai_red_team` | **xhigh** |
-| 평가 기록·개선 제안 | Opus 5.5 · `ai-loop` | low | Sol · `ai_loop` | low |
+| Planning · deep judgment | Opus 5.5 · `claude-opus-5-5` | high | Sol · `gpt-6-sol` | high |
+| Builder | Opus 5.5 · `claude-opus-5-5` | medium | Sol · `gpt-6-sol` | medium |
+| Execution helper | Sonnet 5.5 · `claude-sonnet-5-5` | low | Luna · `gpt-6-luna` | medium |
+| Independent verification | Opus 5.5 · fresh subagent | **xhigh** | Sol · fresh subagent | **xhigh** |
+| Red team | Opus 5.5 · `ai-red-team` | **xhigh** | Sol · `ai_red_team` | **xhigh** |
+| Evaluation record · improvement proposals | Opus 5.5 · `ai-loop` | low | Sol · `ai_loop` | low |
 
-검증을 기획보다 한 단계 높게 두는 규칙은 그대로다. `--mode eco`를 붙여 설치하며, 다른 옵션과 함께 쓸 수 있다.
+The rule of verifying one level above planning still holds. Install with `--mode eco`; it combines with the other options.
 
 ```bash
 python3 scripts/install.py claude --user --mode eco
@@ -40,11 +44,11 @@ python3 scripts/install.py claude --user --package red-team --mode eco
 claude --model claude-opus-5-5 --effort medium
 ```
 
-이미 standard로 설치한 역할 파일은 내용이 달라 충돌로 중단된다. 기존 파일을 옮긴 뒤 다시 설치한다. 기획 판단 충돌이 잦거나 리뷰가 놓치는 결함이 늘면 standard로 돌아간다. 절감률은 아직 측정 전이다.
+Role files already installed in standard mode differ in content, so the install stops on a collision. Move the existing files and install again. If planning conflicts become frequent or reviews start missing defects, go back to standard. Savings have not been measured yet.
 
-## Claude Code 등록
+## Claude Code setup
 
-Python 3.9 이상이 필요하다. 저장소를 받은 뒤 사용할 플랫폼만 설치한다.
+Requires Python 3.9 or later. Clone the repo and install only the platform you use.
 
 ```bash
 git clone https://github.com/mingeonho1/ai-agent.git
@@ -52,118 +56,124 @@ cd ai-agent
 python3 scripts/install.py claude --user
 ```
 
-기본 경로는 Skill `~/.claude/skills/claude-agent-operations/`, 역할 5개 `~/.claude/agents/`다. 평가 루프 Skill `agent-evaluation-loop`도 함께 등록한다. `CLAUDE_CONFIG_DIR`가 지정돼 있으면 그 폴더 아래에 Skill·역할·선택형 훅 설정을 등록한다. 새 Claude Code 세션을 시작하고 `/claude-agent-operations`로 요청한다.
+Default paths: the Skill goes to `~/.claude/skills/claude-agent-operations/` and the five roles to `~/.claude/agents/`. The evaluation-loop Skill `agent-evaluation-loop` is installed too. If `CLAUDE_CONFIG_DIR` is set, the Skill, roles, and optional hook settings go under that folder. Start a new Claude Code session and make requests with `/claude-agent-operations`.
 
 ```bash
 claude --model claude-fable-5-1 --effort high
 ```
 
-`CLAUDE_CODE_EFFORT_LEVEL`이 설정돼 있으면 개별 에이전트의 effort를 덮어쓸 수 있다. 그 환경변수를 해제한 세션에서 이 역할 설정을 사용한다. Fable 5.1은 Claude Code 2.1.257 이상, Opus 5.5·Sonnet 5.5는 최신 버전(`claude update`)이 필요하다. [모델 설정](https://code.claude.com/docs/en/model-config)
+If `CLAUDE_CODE_EFFORT_LEVEL` is set, it can override each agent's effort. Use these role settings in a session where that variable is unset. Fable 5.1 needs Claude Code 2.1.257 or later; Opus 5.5 and Sonnet 5.5 need the latest version (`claude update`). [Model config](https://code.claude.com/docs/en/model-config)
 
-## Codex 등록
+## Codex setup
 
-같은 저장소에서 다음을 실행한다. GPT-6 Sol·Luna는 Codex CLI 0.157.0 이상이 필요하다.
+Run the following from the same repo. GPT-6 Sol and Luna need Codex CLI 0.157.0 or later.
 
 ```bash
 python3 scripts/install.py codex --user
 codex --model gpt-6-astra -c 'model_reasoning_effort="high"'
 ```
 
-Skill은 `~/.agents/skills/codex-agent-operations/`, 역할 5개는 `${CODEX_HOME:-~/.codex}/agents/`에 등록한다. 평가 루프 Skill `agent-evaluation-loop`도 함께 등록한다. 새 Codex 세션에서 `$codex-agent-operations`로 요청한다. 역할 파일의 모델·추론값이 하위 에이전트 실행에 적용되며, Skill만 복사하는 것으로 모델이 바뀌지는 않는다. [`codex/config.example.toml`](codex/config.example.toml)을 참고해 `[agents] max_concurrent_threads_per_session = 3`과 `review_model`을 설정할 수 있다. 프로필은 `~/.codex/<name>.config.toml`에 두고 `--profile <name>`으로 선택한다(0.134.0 이후 형식).
+The Skill goes to `~/.agents/skills/codex-agent-operations/` and the five roles to `${CODEX_HOME:-~/.codex}/agents/`. The evaluation-loop Skill `agent-evaluation-loop` is installed too. In a new Codex session, make requests with `$codex-agent-operations`. The role files' model and effort values apply to subagent runs; copying the Skill alone does not change models. See [`codex/config.example.toml`](codex/config.example.toml) to set `[agents] max_concurrent_threads_per_session = 3` and `review_model`. Profiles live in `~/.codex/<name>.config.toml` and are selected with `--profile <name>` (format since 0.134.0).
 
-## 프로젝트별 등록
+## Per-project setup
 
-전역 설치 대신 대상 프로젝트에만 등록할 수도 있다. 두 플랫폼을 같은 프로젝트에 함께 설치할 수 있다.
+Instead of a global install, you can register into a single project. Both platforms can be installed into the same project.
 
 ```bash
 python3 scripts/install.py claude --project /absolute/path/to/project
 python3 scripts/install.py codex --project /absolute/path/to/project
 ```
 
-| 플랫폼 | Skill | 서브에이전트 |
+| Platform | Skill | Subagents |
 | --- | --- | --- |
 | Claude Code | `.claude/skills/` | `.claude/agents/*.md` |
 | Codex | `.agents/skills/` | `.codex/agents/*.toml` |
 
-`--dry-run`으로 경로를 먼저 확인할 수 있다. 같은 파일은 재설치해도 그대로 두며, 다른 내용이 이미 있으면 덮어쓰지 않고 중단한다. 이전 버전의 `skills/claude-agent-operations`를 Codex에 설치했다면 새 Codex Skill을 쓰고, 기존 설치본은 해당 앱에서 비활성화하거나 정리한다.
+Use `--dry-run` to check paths first. Reinstalling leaves identical files alone; if different content already exists, the installer stops instead of overwriting. If you previously installed `skills/claude-agent-operations` into Codex, use the new Codex Skill and disable or remove the old copy in that app.
 
-## 필요한 하네스만
+## Only the harness you need
 
 | Claude Code | Codex |
 | --- | --- |
-| 역할마다 `model`, `effort`, 필요한 `tools`를 가진 Markdown 에이전트 | 역할마다 `model`, `model_reasoning_effort`를 가진 TOML 에이전트 |
-| `ai-reviewer`를 새 named subagent로 실행해 구현 대화와 분리. `ai-loop`·`ai-red-team`은 `skills:`로 루브릭·체크리스트를 프리로드하고, `ai-reviewer`는 프리로드·memory 없이 새 컨텍스트에서 시작 | `ai_reviewer`를 비상속 새 컨텍스트로 실행. 매 검토마다 `spawn_agent`로 새 스레드를 열고 `resume_agent`로 재개하지 않음 |
-| 작업 ID별 인수인계 문서, 선택형 압축 후 알림 훅 | 짧은 Skill 진입점과 필요한 참조만 읽는 방식, 기본 훅 추가 없음 |
+| A Markdown agent per role with `model`, `effort`, and the `tools` it needs | A TOML agent per role with `model` and `model_reasoning_effort` |
+| `ai-reviewer` runs as a fresh named subagent, separate from the build conversation. `ai-loop` and `ai-red-team` preload rubrics/checklists via `skills:`; `ai-reviewer` starts in a fresh context with no preload or memory | `ai_reviewer` runs in a fresh, non-inherited context. Every review opens a new thread with `spawn_agent`, never `resume_agent` |
+| Per-task handoff documents, optional post-compaction reminder hook | A short Skill entry point that reads only the references it needs; no default hooks added |
 
-두 플랫폼 모두 독립 작업은 병렬로 수행하고, 같은 파일은 한 명만 쓴다. 검증은 파일이 안정된 뒤 시작한다. 수정이 생기면 새 리뷰어가 영향 범위를 다시 검증한다. 비상속 컨텍스트를 확인할 수 없거나 별도 검증이 실행되지 않았으면 독립 검증 미완료로 보고한다. 리뷰어가 추가 실행 증거를 요구하면 실행 보조가 검사하고 리뷰어가 그 결과를 판단한다.
+On both platforms, independent work runs in parallel and only one agent writes a given file. Verification starts after files are stable. If fixes follow, a new reviewer re-verifies the affected scope. If a non-inherited context cannot be confirmed or separate verification did not run, report independent verification as incomplete. If the reviewer asks for more execution evidence, the execution helper runs the checks and the reviewer judges the result.
 
-Claude에서 압축 후 인수인계를 자주 놓칠 때만 아래 옵션을 추가한다. 기존 `settings.json`의 다른 설정을 유지하며 `SessionStart`의 `compact` 이벤트에 짧은 안내를 더한다. 모델 호출이나 대화 전문 수집은 하지 않는다.
+Add the option below only if Claude often loses the handoff after compaction. It keeps the other settings in your existing `settings.json` and adds a short reminder to the `compact` event of `SessionStart`. It does not call a model or collect full transcripts.
 
 ```bash
 python3 scripts/install.py claude --user --with-context-hook
 ```
 
-## 평가하고 개선하는 루프
+## Evaluate-and-improve loop
 
-`ai-loop` / `ai_loop`는 리뷰어의 평가를 기록하고 다음 수정 범위를 제안한다. 점수는 새 독립 리뷰어가 근거와 함께 매기고, 합산과 종료 판정은 Python 스크립트가 계산한다. 실제 수정과 재평가 호출은 메인 에이전트가 맡는다. 이 종료 방식은 Claude Code 공식 [best-practices](https://code.claude.com/docs/en/best-practices)가 정리한 네 가지 루프 종료 게이트 중 "검증 서브에이전트"(일한 에이전트가 스스로 채점하지 않게)에 해당하며, `/goal`과 Stop 훅은 선택 옵션이다.
+`ai-loop` / `ai_loop` records the reviewer's evaluation and proposes the next fix scope. A fresh independent reviewer assigns scores with evidence; a Python script computes totals and the stop decision. The main agent does the actual fixes and re-evaluation calls. This stop mechanism matches the "verification subagent" gate (so the agent that did the work does not grade itself) among the four loop-exit gates in Claude Code's official [best-practices](https://code.claude.com/docs/en/best-practices); `/goal` and the Stop hook are optional.
 
 ```mermaid
 flowchart LR
-    A[요구사항·평가 기준 고정] --> B[구현·필수 검사]
-    B --> C[새 리뷰어: 근거와 점수]
-    C --> D[루프 에이전트: 기록·판정]
-    D -->|통과| E[완료·회귀 사례 정리]
-    D -->|근거 있는 개선, 횟수 남음| B
-    D -->|증거 부족·정체·횟수 소진| F[미완료 사유 보고]
+    A[Fix requirements & criteria] --> B[Build & required checks]
+    B --> C[Fresh reviewer: evidence & scores]
+    C --> D[Loop agent: record & decide]
+    D -->|Pass| E[Done & capture regression cases]
+    D -->|Evidence-backed fix, runs left| B
+    D -->|Missing evidence, stall, or out of runs| F[Report why incomplete]
 ```
 
-| 평가 항목 | 비중 | 확인하는 것 |
+| Criterion | Weight | What it checks |
 | --- | --- | --- |
-| 의도 충족 | 30% | 사용자가 요청한 결과와 제약을 충족하는가 |
-| 정확성 | 30% | 실제 동작과 사실이 맞는가 |
-| 검증 근거 | 20% | 주장에 맞는 검사·실행 증거가 있는가 |
-| 가독성 | 10% | 다음 사용자·작업자가 이해하고 쓸 수 있는가 |
-| 효율 | 10% | 불필요한 변경·도구 호출·반복을 피했는가 |
+| Intent fit | 30% | Does it meet the requested outcome and constraints? |
+| Correctness | 30% | Do actual behavior and facts hold? |
+| Verification evidence | 20% | Are claims backed by matching checks and run evidence? |
+| Readability | 10% | Can the next user or worker understand and use it? |
+| Efficiency | 10% | Did it avoid unnecessary changes, tool calls, and repetition? |
 
-각 항목은 관찰 조건이 있는 0–4점이다. 기본 통과 조건은 **총점 85점 이상, 모든 항목 3점 이상, 필수 검사 통과, 확인된 상·중 지적 없음, 독립 검증 확인**이다. 증거가 없으면 점수를 추정하지 않는다. 기준은 시작 전에 고정하고, 수정한다면 새 버전과 기준선을 만든다.
+Each criterion is scored 0–4 against observable conditions. The default pass bar is **total ≥ 85, every criterion ≥ 3, required checks pass, no confirmed high/medium findings, and independent verification confirmed**. Without evidence, scores are not guessed. Criteria are fixed before starting; if they change, create a new version and baseline.
 
-최초 평가를 포함해 최대 3회 실행한다. 같은 문제를 해결하지 못한 채 점수만 바뀌는 반복은 개선으로 보지 않는다. 이전 점수와 빌더의 설명은 새 리뷰어에게 전달하지 않고, 원래 요구사항·평가 기준·현재 산출물·검증 근거는 매번 제공한다. 작업별 기록은 `runs/<task-id>/`에 둔다. 검증된 교훈은 프로젝트의 `evals/lessons/`에 적용 조건·재현 방법·기대 결과와 함께 남기고, 다음 기획 때 관련 사례를 찾아 새 기준선의 검사 항목으로 반영한다.
+At most 3 runs, including the first evaluation. Iterations where the score moves but the same problem stays unsolved do not count as improvement. Previous scores and the builder's explanation are not passed to the new reviewer; the original requirements, criteria, current output, and verification evidence are provided every time. Per-task records go in `runs/<task-id>/`. Verified lessons go in the project's `evals/lessons/` with applicability, reproduction steps, and expected results, and the next planning pass looks up related cases and adds them as checks in the new baseline.
 
-이 배점과 횟수는 이 저장소의 기본값이다. 사람이 판정한 예시로 보정하기 전 점수는 임시 지표다. [루프 Skill·평가 기준·실행 스크립트](evaluation-loop/skills/agent-evaluation-loop/)에 구체적인 형식이 있다.
+These weights and limits are this repo's defaults. Until calibrated against human-judged examples, scores are provisional. The [loop Skill, criteria, and scripts](evaluation-loop/skills/agent-evaluation-loop/) define the exact formats.
 
-## 기획과 코드를 의심하는 레드팀
+## Red team that doubts plans and code
 
-[red-team/](red-team/)은 별도로 설치한다. 기획의 전제와 코드의 실패 조건을 반대 입장에서 검토하고 **상·중·하 영향도**, 근거, 확신도, 재검증 방법을 반환한다. 기획 자체를 임의로 바꾸거나 의심을 확정 결함으로 바꾸지는 않는다.
+[red-team/](red-team/) installs separately. It reviews plan assumptions and code failure conditions from the opposing side and returns **high/medium/low impact**, evidence, confidence, and how to re-verify. It does not rewrite the plan on its own or turn suspicions into confirmed defects.
 
 ```bash
 python3 scripts/install.py claude --user --package red-team
 python3 scripts/install.py codex --user --package red-team
 ```
 
-Claude는 새 Fable 5.1 xhigh `ai-red-team`, Codex는 새 Astra xhigh `ai_red_team`을 사용한다. Claude에서는 `/adversarial-review`, Codex에서는 `$adversarial-review`로 요청한다. 운영 설정과 함께 설치하려면 `--package all`을 쓴다. `--project`와 `--dry-run`도 지원한다.
+Claude uses a fresh Fable 5.1 xhigh `ai-red-team`; Codex uses a fresh Astra xhigh `ai_red_team`. Request it with `/adversarial-review` in Claude or `$adversarial-review` in Codex. Use `--package all` to install it together with the operations setup. `--project` and `--dry-run` are supported too.
 
-레드팀은 반례를 찾고, 최종 리뷰어는 그 근거를 판단한다. [Petri와 Bloom에서 참고한 범위](red-team/skills/adversarial-review/references/sources.md)를 명시했다. 이 저장소의 Skill은 두 프로젝트의 전체 프레임워크를 설치하지 않는다.
+The red team finds counterexamples; the final reviewer judges that evidence. The [scope borrowed from Petri and Bloom](red-team/skills/adversarial-review/references/sources.md) is documented. This repo's Skill does not install either project's full framework.
 
-## 두 계정으로 나눠 쓰기
+## Dual-account split
 
-[dual-account/](dual-account/)는 Claude 계정 두 개를 역할로 나눈다. 메인 계정(앱·CLI)은 기획·판단·결과 종합만 하고, 토큰을 많이 쓰는 구현·테스트·조사는 서브 계정 CLI가 헤드리스로 처리해 최종 보고만 돌려준다. 로그인만 분리하고 세션·설정·역할·Skill은 `~/.claude`와 공유한다.
+[dual-account/](dual-account/) splits two Claude accounts by role. The main account (app/CLI) only plans, judges, and synthesizes results; token-heavy building, testing, and research run headless on the second account's CLI, which returns only the final report. Only login is separated; sessions, settings, roles, and Skills are shared with `~/.claude`.
 
 ```bash
 bash dual-account/setup.sh
-claude2                      # 처음 한 번 /login 으로 서브 계정 로그인
+claude2                      # first time only: /login with the second account
 alt-agent ai-builder <<'EOF'
-목표, 대상 파일, 완료 기준, 보고 형식
+Goal, target files, done criteria, report format
 EOF
 ```
 
-토큰 가성비 모드와 같이 쓰면 메인은 Opus 5.5 `medium`으로 계획만 하고, 실행 역할은 서브 계정에서 돈다. 헤드리스 실행은 권한 확인 없이 돌기 때문에 신뢰하는 레포에서만 쓴다. 자세한 동작과 주의점은 [dual-account/README.md](dual-account/README.md)에 있다.
+Combined with token-efficient mode, the main account plans with Opus 5.5 `medium` while execution roles run on the second account. Headless runs skip permission prompts, so use them only in repos you trust. Details and caveats are in [dual-account/README.md](dual-account/README.md).
 
-## 구성과 근거
+## Optional add-ons
 
-- [Claude Skill](claude/skills/claude-agent-operations/SKILL.md) · [Claude 역할 설정](claude/agents/) · [선택형 훅](claude/hooks/compact-reminder.json)
-- [Codex Skill](codex/skills/codex-agent-operations/SKILL.md) · [Codex 역할 설정](codex/agents/)
-- [공식 문서에서 선택한 기법과 적용 범위](docs/harness.md)
-- [평가 루프의 근거와 적용 범위](docs/evaluation.md)
-- [경제 뉴스 카드 제작](https://github.com/mingeonho1/economic-news-card-skill)은 별도 저장소다.
+- [fable-mode/](fable-mode/) — Fable orchestration mode. The main agent only plans, routes, and judges; a PreToolUse gate caps direct code edits and pushes execution to subagents. Toggle with `fable on` / `fable off`. It costs more tokens than the default setup.
+- [extras/](extras/) — general-purpose subagents: `diff-code-reviewer` (reviews only the diff) and `skill-evaluator` (grades a SKILL.md).
+- [examples/patsol/](examples/patsol/) — a real company profile (skills, routines, automations) kept as a worked example of how one team customized Claude Code. Company values are filled in by answering questions; nothing company-specific is hardcoded.
 
-토큰 절감률이나 품질 향상률은 아직 측정하지 않았다. 모델·추론·실행 시간·검증 결과를 작업별로 기록해 조정한다.
+## Contents and sources
+
+- [Claude Skill](claude/skills/claude-agent-operations/SKILL.md) · [Claude role settings](claude/agents/) · [Optional hook](claude/hooks/compact-reminder.json)
+- [Codex Skill](codex/skills/codex-agent-operations/SKILL.md) · [Codex role settings](codex/agents/)
+- [Techniques taken from official docs and their scope](docs/harness.md)
+- [Evaluation loop rationale and scope](docs/evaluation.md)
+- [Economic news card maker](https://github.com/mingeonho1/economic-news-card-skill) is a separate repo.
+
+Token savings and quality gains have not been measured yet. Model, effort, run time, and verification results are recorded per task to tune the setup.
