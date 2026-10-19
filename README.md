@@ -144,6 +144,20 @@ Claude는 새 Fable 5.1 xhigh `ai-red-team`, Codex는 새 Astra xhigh `ai_red_te
 
 레드팀은 반례를 찾고, 최종 리뷰어는 그 근거를 판단한다. [Petri와 Bloom에서 참고한 범위](red-team/skills/adversarial-review/references/sources.md)를 명시했다. 이 저장소의 Skill은 두 프로젝트의 전체 프레임워크를 설치하지 않는다.
 
+## 두 계정으로 나눠 쓰기
+
+[dual-account/](dual-account/)는 Claude 계정 두 개를 역할로 나눈다. 메인 계정(앱·CLI)은 기획·판단·결과 종합만 하고, 토큰을 많이 쓰는 구현·테스트·조사는 서브 계정 CLI가 헤드리스로 처리해 최종 보고만 돌려준다. 로그인만 분리하고 세션·설정·역할·Skill은 `~/.claude`와 공유한다.
+
+```bash
+bash dual-account/setup.sh
+claude2                      # 처음 한 번 /login 으로 서브 계정 로그인
+alt-agent ai-builder <<'EOF'
+목표, 대상 파일, 완료 기준, 보고 형식
+EOF
+```
+
+토큰 가성비 모드와 같이 쓰면 메인은 Opus 5.5 `medium`으로 계획만 하고, 실행 역할은 서브 계정에서 돈다. 헤드리스 실행은 권한 확인 없이 돌기 때문에 신뢰하는 레포에서만 쓴다. 자세한 동작과 주의점은 [dual-account/README.md](dual-account/README.md)에 있다.
+
 ## 구성과 근거
 
 - [Claude Skill](claude/skills/claude-agent-operations/SKILL.md) · [Claude 역할 설정](claude/agents/) · [선택형 훅](claude/hooks/compact-reminder.json)

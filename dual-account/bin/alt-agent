@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# alt-agent — 서브 계정 프로필(~/.claude-alt)로 에이전트를 헤드리스 실행하고 최종 결과만 출력한다.
+#
+#   사용: alt-agent <agent> [지시문...]     (지시문 인자가 없으면 stdin 에서 읽음)
+#   예:   alt-agent ai-builder <<'EOF'
+#         ...지시문...
+#         EOF
+#
+# - 현재 디렉터리에서 실행된다(작업할 레포로 cd 한 뒤 호출).
+# - 부모 세션(앱·CLI)이 주입한 계정·프록시 환경변수를 버리고(env -i) 서브 계정 로그인만 쓴다.
+# - 서브 실행에서는 훅을 끄고 MCP 를 로드하지 않는다(중복 실행·토큰 낭비 방지).
+# - 전체 결과 JSON 은 ~/.claude-alt/runs/ 에 남고, 화면엔 결과·세션 ID 만 출력한다.
+# - 종료코드: 0 성공 / 2 서브 계정 미로그인·한도 등 실행 실패(메인은 기본 서브에이전트로 대체).
+set -uo pipefail
+
+agent="${1:?사용: alt-agent <agent> [지시문]}"; shift
+if [ $# -gt 0 ]; then prompt="$*"; else prompt="$(cat)"; fi
+[ -n "$prompt" ] || { echo "alt-agent: 지시문이 비어 있음" >&2; exit 64; }
+
+ALT="${CLAUDE_ALT_DIR:-$HOME/.claude-alt}"
+mkdir -p "$ALT/runs"
+out="$ALT/runs/$(date +%Y%m%d-%H%M%S)-$agent-$$.json"
+
+printf '%s' "$prompt" | env -i \
+  HOME="$HOME" USER="$USER" LOGNAME="${LOGNAME:-$USER}" SHELL="${SHELL:-/bin/zsh}" \
+  PATH="$PATH" LANG="${LANG:-ko_KR.UTF-8}" TMPDIR="${TMPDIR:-/tmp}" TERM=dumb \
+  CLAUDE_CONFIG_DIR="$ALT" \
+  claude -p --agent "$agent" --output-format json \
+    --dangerously-skip-permissions \
+    --settings '{"disableAllHooks":true}' --strict-mcp-config \
+  > "$out" 2> "$out.err"
+rc=$?
+
+python3 -I - "$out" "$rc" <<'PY'
+import json, sys
+path, rc = sys.argv[1], int(sys.argv[2])
+try:
+    d = json.load(open(path))
+except Exception:
+    err = open(path + ".err").read().strip()
+    print(f"[alt-agent 실패] rc={rc}\n{err[-2000:] or '(출력 없음)'}\n로그: {path}.err")
+    sys.exit(2)
+if d.get("is_error") or rc != 0:
+    print(f"[alt-agent 실패] {d.get('subtype')}: {str(d.get('result'))[-2000:]}\n로그: {path}")
+    sys.exit(2)
+print(d.get("result", ""))
+print(f"\n---\n[alt-agent] session={d.get('session_id')} turns={d.get('num_turns')} "
+      f"자세히: claude2 --resume {d.get('session_id')}")
+PY
