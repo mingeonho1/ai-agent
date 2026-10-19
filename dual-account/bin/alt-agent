@@ -1,49 +1,114 @@
 #!/usr/bin/env bash
-# alt-agent — 서브 계정 프로필(~/.claude-alt)로 에이전트를 헤드리스 실행하고 최종 결과만 출력한다.
+# alt-agent — run an agent headless on the second-account profile (~/.claude-alt) and print only the final result.
+# 서브 계정 프로필로 에이전트를 헤드리스 실행하고 최종 결과만 출력한다.
 #
-#   사용: alt-agent <agent> [지시문...]     (지시문 인자가 없으면 stdin 에서 읽음)
-#   예:   alt-agent ai-builder <<'EOF'
-#         ...지시문...
-#         EOF
+#   usage:   alt-agent [-t simple|normal|hard|harder|auto] [-m model] [-e effort] <agent> [instructions...]
+#            (reads stdin if no instruction args)
+#   example: alt-agent -t normal ai-builder <<'EOF'
+#            ...instructions...
+#            EOF
 #
-# - 현재 디렉터리에서 실행된다(작업할 레포로 cd 한 뒤 호출).
-# - 부모 세션(앱·CLI)이 주입한 계정·프록시 환경변수를 버리고(env -i) 서브 계정 로그인만 쓴다.
-# - 서브 실행에서는 훅을 끄고 MCP 를 로드하지 않는다(중복 실행·토큰 낭비 방지).
-# - 전체 결과 JSON 은 ~/.claude-alt/runs/ 에 남고, 화면엔 결과·세션 ID 만 출력한다.
-# - 종료코드: 0 성공 / 2 서브 계정 미로그인·한도 등 실행 실패(메인은 기본 서브에이전트로 대체).
+# Tiers (-t, default normal). The main session does the planning and reasoning, so execution leans on Sonnet:
+#   simple → claude-sonnet-5-5 medium   run/inspect, build/test, logs, mechanical edits
+#   normal → claude-sonnet-5-5 high     regular implementation, fixes, debugging (default)
+#   hard   → claude-opus-5-5   low      cross-module refactors, subtle/concurrency/security bugs, retry after a failed Sonnet run
+#   harder → claude-opus-5-5   medium   code work that "hard" is not enough for
+#   auto   → ask Jev to pick one of the four from the instructions (falls back to normal)
+# -m / -e override the tier. auto needs a Jev helper script: JEV_PY (default ~/.claude/skills/jev-scope/jev.py)
+# that accepts `call` with {"state", "questions"} JSON on stdin.
+# 메인이 기획·추론을 하므로 실행은 Sonnet 위주. 애매하면 auto(Jev)로 고른다.
+#
+# - Runs in the current directory (cd into the target repo first).
+# - Drops account/proxy env vars injected by the parent session (app/CLI) via env -i, so only the second account's login is used.
+# - Second-account runs disable hooks and load no MCP servers (avoids double runs and wasted tokens).
+# - Full result JSON is kept in ~/.claude-alt/runs/; only the result, session ID and tier are printed.
+# - Exit codes: 0 success / 2 second account not logged in, usage limit, or run failure (main falls back to a default subagent).
 set -uo pipefail
 
-agent="${1:?사용: alt-agent <agent> [지시문]}"; shift
+usage="usage: alt-agent [-t tier] [-m model] [-e effort] <agent> [instructions]"
+tier=normal; model=""; effort=""
+while getopts "t:m:e:" o; do
+  case $o in
+    t) tier=$OPTARG ;;
+    m) model=$OPTARG ;;
+    e) effort=$OPTARG ;;
+    *) echo "$usage" >&2; exit 64 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+agent="${1:?$usage}"; shift
 if [ $# -gt 0 ]; then prompt="$*"; else prompt="$(cat)"; fi
-[ -n "$prompt" ] || { echo "alt-agent: 지시문이 비어 있음" >&2; exit 64; }
+[ -n "$prompt" ] || { echo "alt-agent: instructions are empty" >&2; exit 64; }
+
+if [ "$tier" = auto ]; then
+  tier=$(ALT_PROMPT="$prompt" python3 -I - "${JEV_PY:-$HOME/.claude/skills/jev-scope/jev.py}" <<'PY'
+# Ask Jev two yes/no questions and map them to a tier; any failure → normal.
+# Jev 에 예/아니오 두 질문을 던져 단계를 고른다. 실패하면 normal.
+import json, os, subprocess, sys
+q = lambda ins, t, f: {"type": "noul", "instructions": ins, "criteria": {"true": t, "false": f}}
+payload = {"state": os.environ["ALT_PROMPT"][:6000], "questions": {
+    "opus": q("Is this coding task hard enough that a fast capable model (Sonnet) is likely to "
+              "get it wrong, so the strongest model (Opus) is needed?",
+              "Hard: cross-module refactor, subtle/concurrency/security bug, unclear root cause, or a prior failed attempt.",
+              "Routine: run/inspect/build/test, mechanical edits, or a well-specified change in a few files."),
+    "think": q("Does this task need extended step-by-step reasoning to do correctly?",
+               "Yes: many interacting constraints or non-obvious logic to work out.",
+               "No: the steps are clear from the instructions.")}}
+try:
+    r = subprocess.run([sys.executable, "-I", sys.argv[1], "call"], input=json.dumps(payload),
+                       capture_output=True, text=True, timeout=60)
+    a = json.loads(r.stdout)["answers"]
+    opus, think = float(a["opus"]["noul"]), float(a["think"]["noul"])
+    print(("harder" if think >= 0.5 else "hard") if opus >= 0.5 else ("normal" if think >= 0.5 else "simple"))
+except Exception:
+    print("normal")
+PY
+)
+fi
+
+case $tier in
+  simple) dm=claude-sonnet-5-5; de=medium ;;
+  normal) dm=claude-sonnet-5-5; de=high ;;
+  hard)   dm=claude-opus-5-5;   de=low ;;
+  harder) dm=claude-opus-5-5;   de=medium ;;
+  *) echo "alt-agent: unknown tier '$tier' (simple|normal|hard|harder|auto)" >&2; exit 64 ;;
+esac
+case ${model:-$dm} in sonnet) model=claude-sonnet-5-5 ;; opus) model=claude-opus-5-5 ;; *) model=${model:-$dm} ;; esac
+effort=${effort:-$de}
 
 ALT="${CLAUDE_ALT_DIR:-$HOME/.claude-alt}"
 mkdir -p "$ALT/runs"
+
+# Shared profile items are symlinks into the real ~/.claude, so anything that writes to the config dir hits the real one.
+# 서브 프로필 항목은 실제 ~/.claude 심링크라 설정 폴더에 쓰는 도구는 실사용 설정을 건드린다.
+GUARD="Environment note: CLAUDE_CONFIG_DIR=$ALT is a second-account profile whose agents/, skills/, settings.json, projects/ etc. are symlinks into the user's REAL ~/.claude. Never run installers, uninstallers or scripts that write to the Claude config dir. When a task needs a test install into a temp home, run it with CLAUDE_CONFIG_DIR unset (env -u CLAUDE_CONFIG_DIR ...) and verify it targets the temp dir before running."
 out="$ALT/runs/$(date +%Y%m%d-%H%M%S)-$agent-$$.json"
 
 printf '%s' "$prompt" | env -i \
   HOME="$HOME" USER="$USER" LOGNAME="${LOGNAME:-$USER}" SHELL="${SHELL:-/bin/zsh}" \
-  PATH="$PATH" LANG="${LANG:-ko_KR.UTF-8}" TMPDIR="${TMPDIR:-/tmp}" TERM=dumb \
+  PATH="$PATH" LANG="${LANG:-en_US.UTF-8}" TMPDIR="${TMPDIR:-/tmp}" TERM=dumb \
   CLAUDE_CONFIG_DIR="$ALT" \
-  claude -p --agent "$agent" --output-format json \
+  claude -p --agent "$agent" --model "$model" --effort "$effort" --output-format json \
+    --append-system-prompt "$GUARD" \
     --dangerously-skip-permissions \
     --settings '{"disableAllHooks":true}' --strict-mcp-config \
   > "$out" 2> "$out.err"
 rc=$?
 
-python3 -I - "$out" "$rc" <<'PY'
+python3 -I - "$out" "$rc" "$tier" "$model" "$effort" <<'PY'
 import json, sys
-path, rc = sys.argv[1], int(sys.argv[2])
+path, rc, tier, model, effort = sys.argv[1], int(sys.argv[2]), *sys.argv[3:6]
 try:
     d = json.load(open(path))
 except Exception:
     err = open(path + ".err").read().strip()
-    print(f"[alt-agent 실패] rc={rc}\n{err[-2000:] or '(출력 없음)'}\n로그: {path}.err")
+    print(f"[alt-agent failed] rc={rc}\n{err[-2000:] or '(no output)'}\nlog: {path}.err")
     sys.exit(2)
 if d.get("is_error") or rc != 0:
-    print(f"[alt-agent 실패] {d.get('subtype')}: {str(d.get('result'))[-2000:]}\n로그: {path}")
+    print(f"[alt-agent failed] {d.get('subtype')}: {str(d.get('result'))[-2000:]}\nlog: {path}")
     sys.exit(2)
 print(d.get("result", ""))
-print(f"\n---\n[alt-agent] session={d.get('session_id')} turns={d.get('num_turns')} "
-      f"자세히: claude2 --resume {d.get('session_id')}")
+print(f"\n---\n[alt-agent] tier={tier} ({model} {effort}) session={d.get('session_id')} "
+      f"turns={d.get('num_turns')} details: claude2 --resume {d.get('session_id')}")
 PY

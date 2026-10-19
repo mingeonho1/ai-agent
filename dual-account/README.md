@@ -1,67 +1,85 @@
-# 두 계정 분담 (dual-account)
+# Dual-account split (dual-account)
 
-메인 계정은 Claude 앱(또는 CLI)에서 기획·판단·결과 종합에만 쓰고, 토큰을 많이 쓰는 실행은 서브 계정 CLI가 헤드리스로 처리한다. 메인 세션에는 지시문과 최종 보고만 남는다.
+The main account is used in the Claude app (or CLI) only for planning, judgment, and synthesizing results; token-heavy execution runs headless on a second account's CLI. Only the instructions and the final report stay in the main session.
 
 ```
-메인 (앱, 계정 A) ── 지시문 ──▶ alt-agent ──▶ 서브 CLI (계정 B, ~/.claude-alt)
-        ▲                                         │ 구현·테스트·조사
-        └────────────── 최종 보고 + 세션 ID ◀──────┘
+Main (app, account A) ── instructions ──▶ alt-agent ──▶ second CLI (account B, ~/.claude-alt)
+        ▲                                                │ build · test · research
+        └────────────── final report + session ID ◀─────┘
 ```
 
-## 구성
+## Contents
 
-| 파일 | 역할 |
+| File | Role |
 |---|---|
-| [`setup.sh`](setup.sh) | `~/.claude-alt` 프로필 생성, 공유 항목 심링크, `alt-agent` 설치, 셸에 `claude2` 추가 |
-| [`bin/alt-agent`](bin/alt-agent) | 서브 계정으로 `claude -p --agent <역할>` 실행, 결과만 출력 |
+| [`setup.sh`](setup.sh) | Creates the `~/.claude-alt` profile, symlinks shared items, installs `alt-agent`, adds `claude2` to your shell |
+| [`bin/alt-agent`](bin/alt-agent) | Runs `claude -p --agent <role>` on the second account and prints only the result |
 
-공유하는 것: `CLAUDE.md`, `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/`(세션·메모리), 입력 히스토리. 공유하지 않는 것: 로그인(`.claude.json`, 키체인 항목은 설정 폴더별로 따로 저장된다), 세션 런타임 상태. 사용자 범위 MCP 서버 설정은 처음 한 번 복사한다.
+Shared: `CLAUDE.md`, `settings.json`, `agents/`, `skills/`, `commands/`, `plugins/`, `projects/` (sessions · memory), input history. Not shared: login (`.claude.json`; keychain entries are stored per config folder) and session runtime state. User-scope MCP server settings are copied once.
 
-## 설치
+## Install
 
 ```bash
 bash dual-account/setup.sh --dry-run
 bash dual-account/setup.sh
 ```
 
-새 셸에서 `claude2`를 실행하고 `/login`으로 서브 계정에 로그인한다. 두 프로필의 로그인은 `claude auth status`와 `CLAUDE_CONFIG_DIR=~/.claude-alt claude auth status`로 각각 확인한다.
+In a new shell, run `claude2` and `/login` with the second account. Check each profile's login with `claude auth status` and `CLAUDE_CONFIG_DIR=~/.claude-alt claude auth status`.
 
-## 사용
+## Usage
 
-작업 레포로 이동한 뒤 실행한다. 메인 세션에서는 Bash 도구로 백그라운드 실행하면 끝날 때 결과만 돌아온다.
+`cd` into the working repo first. From the main session, run it in the background with the Bash tool and only the result comes back when it finishes.
 
 ```bash
-alt-agent ai-builder <<'EOF'
-목표, 대상 파일, 완료 기준, 보고 형식을 자기완결적으로 쓴다.
+alt-agent -t normal ai-builder <<'EOF'
+Write a self-contained brief: goal, target files, done criteria, report format.
 EOF
 ```
 
-- 전체 기록은 `~/.claude-alt/runs/`에 남는다. 자세한 과정은 `claude2 --resume <세션 ID>`로 본다.
-- 종료코드 2는 서브 계정 미로그인·사용 한도·실행 실패다. 메인은 같은 지시문을 기본 서브에이전트로 넘긴다.
-- 헤드리스 실행은 권한을 물을 수 없어 `--dangerously-skip-permissions`로 돈다. 신뢰하는 레포에서만 쓰고, 필요하면 워크트리에서 실행한다.
-- 서브 실행에서는 훅을 끄고 MCP를 로드하지 않는다. 메인에 걸린 게이트·알림 훅이 두 번 돌지 않게 하려는 선택이다.
+### Model tiers
 
-## 메인 지침에 넣을 문단
+The main session already does the planning and heavy reasoning, so execution leans on Sonnet 5.5. Pick a tier with `-t`; `-m`/`-e` override it.
 
-메인 세션이 위임 경로를 알도록 `~/.claude/CLAUDE.md`에 추가한다.
+| Tier | Model · effort | Use for |
+|---|---|---|
+| `simple` | Sonnet 5.5 · medium | run/inspect, build/test, logs, mechanical edits |
+| `normal` (default) | Sonnet 5.5 · high | regular implementation, fixes, debugging |
+| `hard` | Opus 5.5 · low | cross-module refactors, subtle/concurrency/security bugs, retry after a failed Sonnet run |
+| `harder` | Opus 5.5 · medium | code work that `hard` is not enough for |
+| `auto` | one of the above | when the choice is unclear: Jev (TypeSafe's decision model) answers two yes/no questions about the brief (needs Opus? needs extended reasoning?) and picks the tier; falls back to `normal` on any error |
+
+`auto` needs a Jev helper that accepts `call` with `{"state", "questions"}` JSON on stdin; point `JEV_PY` at it. Without it, `auto` behaves like `normal`.
+
+- Full records are kept in `~/.claude-alt/runs/`. See the details with `claude2 --resume <session ID>`.
+- Exit code 2 means the second account is not logged in, hit a usage limit, or the run failed. The main agent hands the same instructions to a default subagent.
+- Headless runs cannot ask for permission, so they run with `--dangerously-skip-permissions`. Use only in repos you trust, and run in a worktree if needed.
+- Second-account runs disable hooks and load no MCP servers, so gate/notification hooks on the main account do not run twice.
+
+## Paragraph for the main instructions
+
+Add this to `~/.claude/CLAUDE.md` so the main session knows the delegation path.
 
 ```markdown
-## 서브 계정 위임 (메인 계정 토큰 절약)
+## Second-account delegation (save main-account tokens)
 
-메인 계정은 기획·판단·결과 종합에만 쓰고, 토큰을 많이 쓰는 작업은 서브 계정으로 보낸다.
+Use the main account only for planning, judgment, and synthesizing results; send token-heavy work to the second account.
 
-- 다중 파일 구현·테스트·디버깅·긴 조사 → Bash 로 `~/.claude/bin/alt-agent ai-builder <<'EOF' … EOF`
-  (작업 레포로 cd 후 백그라운드 실행). 계획·판단 충돌은 `ai-planner`, 단순 실행은 `ai-runner`.
-- 지시문은 컨텍스트를 공유하지 않으므로 목표·대상 파일·완료 기준·보고 형식을 자기완결적으로 쓴다.
-- 1~2개 파일 소규모 수정·단순 조회는 위임 비용이 더 크니 메인이 직접 한다.
-- 종료코드 2면 같은 지시문으로 기본 서브에이전트에 위임하고 한 줄로 알린다.
-- 같은 파일을 건드리는 alt-agent 를 동시에 두 개 돌리지 않는다.
+- Multi-file builds, tests, debugging, long research → Bash: `~/.claude/bin/alt-agent -t <tier> ai-builder <<'EOF' … EOF`
+  (cd into the working repo, run in the background). Simple runs → `ai-runner`.
+- Prefer Sonnet: `simple` (Sonnet medium) for runs/lookups/mechanical edits, `normal` (Sonnet high, default) for regular
+  implementation; `hard` (Opus low) / `harder` (Opus medium) only for genuinely hard code or after a failed Sonnet run.
+  If the choice is unclear, use `auto`.
+- The instructions share no context, so write goal, target files, done criteria, and report format self-contained.
+- Small edits to 1–2 files or simple lookups cost more to delegate; the main agent does them directly.
+- On exit code 2, delegate the same instructions to a default subagent and mention it in one line.
+- Do not run two alt-agents that touch the same file at the same time.
 ```
 
-## 주의
+## Caveats
 
-- `scripts/install.py --user`는 `CLAUDE_CONFIG_DIR`이 비어 있는 일반 셸에서 실행한다. `~/.claude-alt`의 `agents/`는 심링크라 설치 경로 검사에 걸리고, `~/.claude`에 설치하면 서브 계정에도 그대로 보인다.
-- 같은 세션을 두 계정에서 동시에 이어 쓰지 않는다. 같은 기록 파일에 동시에 쓰면 꼬일 수 있다.
-- 회사 계정과 개인 계정을 섞으면 회사 코드가 다른 계정에서 처리된다. 조직 정책을 먼저 확인한다.
-- 사용 한도를 우회하려고 계정을 늘리는 용도라면 이용약관을 확인한다.
-- 토큰 절감 효과는 아직 측정하지 않았다.
+- Run `scripts/install.py --user` in a normal shell with `CLAUDE_CONFIG_DIR` unset. `agents/` in `~/.claude-alt` is a symlink and fails the install path check; anything installed into `~/.claude` is visible to the second account anyway.
+- Shared items in `~/.claude-alt` are symlinks into your real `~/.claude`, so any tool a second-account run uses that writes to its config dir (installers, uninstallers) changes your real setup. `alt-agent` tells every run this and to unset `CLAUDE_CONFIG_DIR` for temp-home test installs; keep that rule in your briefs too.
+- Do not continue the same session from both accounts at once. Concurrent writes to the same record file can corrupt it.
+- Mixing a company account and a personal account means company code is processed under another account. Check your organization's policy first.
+- If you are adding accounts to get around usage limits, check the terms of service.
+- Token savings have not been measured yet.
