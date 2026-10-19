@@ -1,0 +1,56 @@
+#!/bin/sh
+# fable — orchestration mode switch (on|off|status)
+# fable — 오케스트레이션 모드 스위치 (on|off|status)
+#
+#   on     : write "on" to <config>/.fable-state + copy fable.md to active.md
+#   off    : write "off" to <config>/.fable-state + copy empty.md to active.md
+#   status : print the current state
+#   on     : <config>/.fable-state 에 "on" 기록 + fable.md 를 active.md 로 복사
+#   off    : <config>/.fable-state 에 "off" 기록 + empty.md 를 active.md 로 복사
+#   status : 현재 상태 출력
+#
+# <config> = ${CLAUDE_CONFIG_DIR:-$HOME/.claude}
+# The global CLAUDE.md imports @~/.claude/fable/active.md, so swapping active.md
+# alone injects/removes the mode.
+# 전역 CLAUDE.md 가 @~/.claude/fable/active.md 를 import 하므로, active.md 를
+# 바꾸는 것만으로 모드가 주입/해제된다.
+
+set -eu
+
+CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+FABLE_DIR="$CONFIG_DIR/fable"
+STATE_FILE="$CONFIG_DIR/.fable-state"
+ACTIVE="$FABLE_DIR/active.md"
+
+usage() {
+  echo "usage: fable on|off|status" >&2
+  exit 2
+}
+
+[ $# -ge 1 ] || usage
+
+case "$1" in
+  on)
+    mkdir -p "$FABLE_DIR"
+    printf 'on\n' > "$STATE_FILE"
+    cp "$FABLE_DIR/fable.md" "$ACTIVE"
+    echo "fable: on (active.md ← fable.md)"
+    ;;
+  off)
+    mkdir -p "$FABLE_DIR"
+    printf 'off\n' > "$STATE_FILE"
+    cp "$FABLE_DIR/empty.md" "$ACTIVE"
+    echo "fable: off (active.md ← empty.md)"
+    ;;
+  status)
+    if [ -r "$STATE_FILE" ]; then
+      state="$(cat "$STATE_FILE")"
+    else
+      state="off"
+    fi
+    echo "fable: $state"
+    ;;
+  *)
+    usage
+    ;;
+esac
