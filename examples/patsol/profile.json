@@ -1,0 +1,263 @@
+{
+  "name": "patsol",
+  "description": "Claude Code customization for PatSol company work — PR autofix/review, bug and Sentry triage, Jira sync, work journal, new-task pipeline, WandSol time-tracking hook. Environment-specific values are filled in via questions at install time.",
+  "description_ko": "PatSol 회사 업무용 Claude Code 커스터마이징 — PR 자동수정/리뷰, 버그·Sentry 트리아지, Jira 동기화, 업무 일지, 새 작업 파이프라인, WandSol 시간추적 훅. 환경 종속 값은 설치 시 질문으로 채웁니다.",
+  "variables": [
+    {
+      "name": "USER_DISPLAY_NAME",
+      "question": "Your display name? (used in skill, journal, and notification text. e.g. Jane Kim)",
+      "question_ko": "본인 표시 이름은? (스킬·일지·알림 문구에 쓰입니다. 예: Jane Kim)",
+      "example": "Jane Kim",
+      "default": null,
+      "required": true,
+      "secret": false
+    },
+    {
+      "name": "GIT_AUTHOR",
+      "question": "Your git commit author / handle? (matched by git log --author for commit collection. e.g. jkim)",
+      "question_ko": "git 커밋 author / 핸들은? (git log --author 매칭, 커밋 수집용. 예: jkim)",
+      "example": "jkim",
+      "default": null,
+      "required": true,
+      "secret": false
+    },
+    {
+      "name": "USER_EMAIL",
+      "question": "Your work email? (used for Jira assignee lookup, etc. e.g. you@yourco.com)",
+      "question_ko": "업무 이메일은? (Jira 담당자 조회 등에 사용. 예: you@yourco.com)",
+      "example": "you@yourco.com",
+      "default": null,
+      "required": true,
+      "secret": false
+    },
+    {
+      "name": "JIRA_SITE",
+      "question": "Your Jira site domain? (e.g. yourco.atlassian.net)",
+      "question_ko": "Jira 사이트 도메인은? (예: yourco.atlassian.net)",
+      "example": "yourco.atlassian.net",
+      "default": null,
+      "required": true,
+      "secret": false
+    },
+    {
+      "name": "JIRA_PROJECT_KEY",
+      "question": "Your Jira project key? (ticket prefix. e.g. PS, ABC)",
+      "question_ko": "Jira 프로젝트 키는? (티켓 접두사. 예: PS, ABC)",
+      "example": "PS",
+      "default": null,
+      "required": true,
+      "secret": false
+    },
+    {
+      "name": "GITHUB_ORG",
+      "question": "Your GitHub organization (org) name? (for repo references. e.g. your-org)",
+      "question_ko": "GitHub 조직(org) 이름은? (레포 참조용. 예: your-org)",
+      "example": "your-org",
+      "default": "your-org",
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "BACKEND_REPO_NAME",
+      "question": "Backend repo name? (must start with REPO_PREFIX to be auto-detected. e.g. acme-back)",
+      "question_ko": "백엔드 레포 이름은? (REPO_PREFIX 로 시작해야 자동 감지됩니다. 예: acme-back)",
+      "example": "acme-back",
+      "default": "acme-back",
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "FRONTEND_REPO_NAME",
+      "question": "Frontend repo name? (must start with REPO_PREFIX to be auto-detected. e.g. acme-front)",
+      "question_ko": "프론트엔드 레포 이름은? (REPO_PREFIX 로 시작해야 자동 감지됩니다. 예: acme-front)",
+      "example": "acme-front",
+      "default": "acme-front",
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "REPO_PREFIX",
+      "question": "Common prefix of your repo names? (for sibling-repo auto-detection — finds repos above cwd via glob `<prefix>-*`. Your backend/frontend repo names must also start with this prefix. e.g. acme)",
+      "question_ko": "레포 이름들의 공통 접두사는? (형제 레포 자동 감지용 — glob `<접두사>-*` 로 cwd 상위에서 레포를 찾습니다. 백엔드/프론트 레포 이름도 이 접두사로 시작해야 합니다. 예: acme)",
+      "example": "acme",
+      "default": "acme",
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "BACKEND_REPO_PATH",
+      "question": "Local absolute path of the default new-task target (backend) repo? (e.g. ~/work/acme-back)",
+      "question_ko": "new-task 기본 대상(백엔드) 레포의 로컬 절대경로는? (예: ~/work/acme-back)",
+      "example": "~/work/acme-back",
+      "default": "~/work/acme-back",
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "REPO_ROOT",
+      "question": "Root directory the work-journal collector scans for git repos? (e.g. ~/work)",
+      "question_ko": "업무 일지 수집기가 git 레포를 스캔할 루트 디렉터리는? (예: ~/work)",
+      "example": "~/work",
+      "default": "~/work",
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "AGENT_RULES_ENV",
+      "question": "Path to the .env that new-task/apply-review reads? (file holding Jira/Notion tokens. e.g. ~/.config/patsol/patsol.env)",
+      "question_ko": "new-task/apply-review 가 읽을 .env 경로는? (Jira·Notion 토큰이 든 파일. 예: ~/.config/patsol/patsol.env)",
+      "example": "~/.config/patsol/patsol.env",
+      "default": "~/.config/patsol/patsol.env",
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "SENTRY_ORG",
+      "question": "Your Sentry organization slug? (the <org> in <org>.sentry.io. e.g. your-org)",
+      "question_ko": "Sentry 조직 슬러그는? (<org>.sentry.io 의 <org>. 예: your-org)",
+      "example": "your-org",
+      "default": "your-org",
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "SLACK_WORKSPACE",
+      "question": "Your Slack workspace subdomain? (the <name> in <name>.slack.com. e.g. yourco)",
+      "question_ko": "Slack 워크스페이스 서브도메인은? (<name>.slack.com 의 <name>. 예: yourco)",
+      "example": "yourco",
+      "default": "yourco",
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "SLACK_USER_ID",
+      "question": "Your Slack member ID? (for the slack-digest routine. optional. e.g. U00000000)",
+      "question_ko": "본인 Slack member ID는? (slack-digest 루틴용. 비워도 됨. 예: U00000000)",
+      "example": "U00000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "SLACK_HANDLE",
+      "question": "Your Slack handle / display name? (slack-digest uses it to find you in message bodies. may differ from your git handle. optional. e.g. jane)",
+      "question_ko": "Slack에서 불리는 핸들/표시명은? (slack-digest 가 메시지 본문에서 나를 찾는 데 씁니다. git 핸들과 다를 수 있음. 비워도 됨. 예: jane)",
+      "example": "jane",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "JIRA_CLOUD_ID",
+      "question": "Your Jira cloud_id? (for the work-journal collector. leave blank if unknown and fill in later)",
+      "question_ko": "Jira cloud_id는? (업무 일지 수집기용. 모르면 비워두고 나중에 채우세요)",
+      "example": "00000000-0000-0000-0000-000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "JIRA_ACCOUNT_ID",
+      "question": "Your Jira accountId? (for new-task assignee and the journal. look it up with discover.py)",
+      "question_ko": "본인 Jira accountId는? (new-task 담당자 지정·일지용. discover.py 로 조회 가능)",
+      "example": "712020:00000000-0000-0000-0000-000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "JIRA_TEAM_ID",
+      "question": "team_id of the Jira Team custom field? (for new-task. look it up with discover.py)",
+      "question_ko": "Jira Team 커스텀 필드의 team_id는? (new-task 용. discover.py 로 조회 가능)",
+      "example": "00000000-0000-0000-0000-000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "NOTION_PARENT_PAGE_ID",
+      "question": "Parent Notion page ID for the work journal? (optional)",
+      "question_ko": "업무 일지 상위 Notion 페이지 ID는? (비워도 됨)",
+      "example": "00000000000000000000000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "NOTION_TICKET_DB_ID",
+      "question": "database_id of the work-journal 'ticket' DB? (optional)",
+      "question_ko": "업무 일지 '티켓' DB의 database_id는? (비워도 됨)",
+      "example": "00000000000000000000000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "NOTION_TICKET_DS_ID",
+      "question": "data_source_id of the work-journal 'ticket' DB? (optional)",
+      "question_ko": "업무 일지 '티켓' DB의 data_source_id는? (비워도 됨)",
+      "example": "00000000-0000-0000-0000-000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "NOTION_WORK_DB_ID",
+      "question": "database_id of the work-journal 'work' DB? (optional)",
+      "question_ko": "업무 일지 '작업' DB의 database_id는? (비워도 됨)",
+      "example": "00000000000000000000000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "NOTION_WORK_DS_ID",
+      "question": "data_source_id of the work-journal 'work' DB? (optional)",
+      "question_ko": "업무 일지 '작업' DB의 data_source_id는? (비워도 됨)",
+      "example": "00000000-0000-0000-0000-000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "NOTION_DAILY_DB_ID",
+      "question": "database_id of the work-journal 'daily' DB? (optional)",
+      "question_ko": "업무 일지 '일별' DB의 database_id는? (비워도 됨)",
+      "example": "00000000000000000000000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "NOTION_DAILY_DS_ID",
+      "question": "data_source_id of the work-journal 'daily' DB? (optional)",
+      "question_ko": "업무 일지 '일별' DB의 data_source_id는? (비워도 됨)",
+      "example": "00000000-0000-0000-0000-000000000000",
+      "default": null,
+      "required": false,
+      "secret": false
+    },
+    {
+      "name": "CLAUDE_DIR",
+      "question": "(auto) Install directory — render.py fills it from the --out value.",
+      "question_ko": "(자동) 설치 디렉터리 — render.py 가 --out 값으로 자동 채웁니다.",
+      "example": "~/.claude",
+      "default": null,
+      "required": false,
+      "secret": false,
+      "auto": "claude_dir"
+    }
+  ],
+  "env": [
+    { "name": "JIRA_BASE_URL", "purpose": "Base URL for Jira REST calls in new-task/discover (injected via the AGENT_RULES_ENV .env)" },
+    { "name": "JIRA_EMAIL", "purpose": "Email for Jira Basic auth (.env)" },
+    { "name": "JIRA_API_TOKEN", "purpose": "Jira API token — secret (.env)" },
+    { "name": "NOTION_API_TOKEN", "purpose": "Notion API token — secret (.env). Used by apply-review/new-task/discover" },
+    { "name": "NOTION_PLAN_DB_ID", "purpose": "Notion plan DB ID where new-task creates pages (.env)" },
+    { "name": "TYPESAFE_API_KEY", "purpose": "Jev (TypeSafe) API key — secret. Set via env var or the ~/.config/jev/api_key file" },
+    { "name": "SENTRY_TRIAGE_SLACK_WEBHOOK", "purpose": "Slack Incoming Webhook URL for sentry-triage reports — secret" },
+    { "name": "SENTRY_TRIAGE_ONCALL", "purpose": "On-call Slack member id that sentry-triage mentions (e.g. <@U123ABC>)" },
+    { "name": "SENTRY_TRIAGE_AUTOFIX", "purpose": "Toggle sentry-triage headless autofix on/off (default on)" },
+    { "name": "ANTHROPIC_API_KEY", "purpose": "For running Claude Code in sentry-triage automation (CI) — secret" }
+  ]
+}
