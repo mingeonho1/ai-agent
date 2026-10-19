@@ -1,71 +1,72 @@
-# 작업 계약과 인수인계
+# Task contract and handoff
 
-작업마다 고유한 ID와 인수인계 파일의 절대 경로를 정한다. 메인이 이 파일의
-유일한 작성자이며 처음 위임할 때 모든 worker에게 경로를 알려준다.
-다른 작업의 파일을 수정 시각이나 이름으로 추정해 불러오지 않는다.
-재개 시 경로가 없으면 현재 대화에 명시된 작업부터 확인한다.
+For each task, set a unique ID and an absolute path for the handoff file. The main agent is
+the only writer of this file and tells every worker the path on first delegation.
+Do not load another task's file by guessing from modification time or name.
+When resuming without a path, first confirm the task named in the current conversation.
 
-## 위임 계약
-
-```text
-작업 ID:
-요구사항 / 산출물:
-완료 조건:
-입력 파일과 근거의 절대 경로:
-담당 agent / 질문 또는 실행 명령 / 실행 디렉터리:
-소유 파일과 허용된 생성물 경로:
-의존 작업 / 시작 조건:
-검증 명령 / 기대되는 관찰 결과:
-중단 조건:
-반환할 결과와 증거 파일 경로:
-인수인계 파일의 절대 경로:
-```
-
-worker는 소유권 밖의 수정이 필요하면 메인에 알린다. 명령의 생성물도 파일
-소유권에 포함한다. 같은 파일의 구현, 빌드 생성, 검토를 동시에 실행하지 않는다.
-
-## 메인이 유지하는 상태
+## Delegation contract
 
 ```text
-작업 ID / 현재 요청:
-현재 단계 / 다음 행동:
-확정된 결정과 제약:
-worker별 소유 파일 / 실행 중 여부:
-완료된 변경 / 아직 필요한 변경:
-현재 diff와 변경 파일 경로:
-검증 명령 / 실행 시점 / 결과 / 증거 경로:
-검토 대상 상태 / reviewer 결과 / 미해결 항목:
+Task ID:
+Requirements / deliverables:
+Completion criteria:
+Absolute paths of input files and evidence:
+Assigned agent / question or command / working directory:
+Owned files and allowed artifact paths:
+Dependencies / start condition:
+Verification command / expected observation:
+Stop condition:
+Results to return and evidence file paths:
+Absolute path of the handoff file:
 ```
 
-diff에는 staged, unstaged와 새 파일을 빠뜨리지 않는다. 커밋 범위를 검토하면
-기준 커밋과 대상 커밋을 적고, 미커밋 변경이면 변경 목록과 내용을 검토 시점에
-고정한다. 증거가 실제 검토 대상 상태에서 나온 것인지 확인한다.
+If a worker needs an edit outside its ownership, it tells the main agent. Command artifacts
+also count toward file ownership. Do not run implementation, build output, and review on the
+same file at the same time.
 
-## Reviewer 입력
+## State the main agent keeps
 
-원래 요구사항과 완료 조건, 필수 기준, 고정 평가 루브릭·체크리스트의 실제 파일 경로, 현재 diff, 현재 파일, 테스트 명령과 결과를
-전달한다. 승인 결론, 의도한 정답, builder의 설명, 메인 대화나 과거 reviewer의
-사고 과정, 이전 회차의 점수와 반복 기록은 전달하지 않는다. reviewer가 직접 확인할 수 있도록 절대 경로를 쓴다.
-reviewer는 `memory`나 프리로드 스킬 없이 새 컨텍스트로 시작한다.
+```text
+Task ID / current request:
+Current step / next action:
+Settled decisions and constraints:
+Owned files per worker / running or not:
+Completed changes / changes still needed:
+Current diff and changed file paths:
+Verification command / when run / result / evidence path:
+Review target state / reviewer result / open items:
+```
 
-메인은 PASS를 요청하는 대신 검증을 요청한다. reviewer는 PASS, REJECT,
-NEEDS_EVIDENCE 중 하나와 그 근거를 반환한다. 수정이나 증거 보강 후에는
-새 reviewer가 최신 상태를 다시 판단한다.
+Do not omit staged, unstaged, or new files from the diff. When reviewing a commit range,
+record the base and target commits; for uncommitted changes, freeze the change list and
+content at review time. Confirm the evidence came from the actual review target state.
 
-## 평가 회차 계약
+## Reviewer input
 
-반복 평가를 사용할 때는 프로젝트 내부 교훈 경로를 정한다. 기본값은
-`evals/lessons/`이다. 새 baseline 전에 planner 또는 ai-loop가 적용 범위와 조건이
-맞고 상태가 current인 교훈을 읽어 현재 필수 검사로 변환한다. 그 뒤 루브릭과
-필수 기준을 고정하고 작업별 평가 기록
-경로의 작성자를 ai-loop 한 명으로 정한다. ai-loop에는 설치된 평가 도구와 루브릭,
-작업별 ledger의 절대 경로를 명시한다. 각 회차의 새 reviewer는 차원별 원점수와
-근거, 필수 기준 결과, severity와 confidence가 분리된 발견 사항을 반환한다.
-ai-loop에는 이 점수표와 fingerprint, 실제 모델·effort, 측정한 token·실행 정보만 전달한다.
-개인 대화나 비공개 사고 과정은 기록하지 않는다. 다음 회차에도 원래 요구사항과
-같은 루브릭을 전달하며 이전 점수는 숨긴다.
+Pass the original requirements and completion criteria, required criteria, the actual file paths of the fixed evaluation rubric/checklist, the current diff, current files, and test commands with results.
+Do not pass approval conclusions, the intended answer, the builder's explanations, the main
+conversation's or past reviewers' reasoning, or previous rounds' scores and iteration records. Use absolute paths so the reviewer can check directly.
+The reviewer starts in a fresh context without `memory` or preloaded skills.
 
-확인되고 수정된 결함은 적용 범위와 조건, 검증된 실패, 수정 원칙, 재현과 기대
-결과, 증거, current 또는 superseded 상태를 프로젝트 교훈에 기록한다. 점수와 승인
-과정은 넣지 않고 전역 개인 메모리로 복사하지 않는다. 새 reviewer에는 교훈 파일이
-아니라 그 교훈에서 만든 현재의 고정 검사만 전달한다.
+The main agent asks for verification instead of asking for PASS. The reviewer returns one of
+PASS, REJECT, or NEEDS_EVIDENCE with its evidence. After fixes or evidence additions, a
+new reviewer judges the latest state again.
+
+## Evaluation round contract
+
+When using repeated evaluation, set an in-project lessons path. The default is
+`evals/lessons/`. Before a new baseline, the planner or ai-loop reads lessons whose scope and
+conditions match and whose status is current, and turns them into current required checks. Then
+fix the rubric and required criteria and make ai-loop the single writer of the per-task
+evaluation record path. Give ai-loop the absolute paths of the installed evaluation tool, rubric,
+and per-task ledger. Each round's new reviewer returns raw scores and evidence per dimension,
+required-criteria results, and findings with severity and confidence kept separate.
+Pass ai-loop only this scorecard and the fingerprint, the actual model/effort, and measured token/run info.
+Do not record private conversations or private reasoning. In the next round, pass the original
+requirements and the same rubric, and hide previous scores.
+
+For confirmed and fixed defects, record in the project lessons: scope and conditions, the verified
+failure, the fix principle, reproduction and expected result, evidence, and current or superseded status.
+Do not include scores or the approval process, and do not copy them into global personal memory. Pass a new
+reviewer not the lesson file but only the current fixed checks derived from it.

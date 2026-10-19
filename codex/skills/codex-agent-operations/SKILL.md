@@ -1,40 +1,40 @@
 ---
 name: codex-agent-operations
-description: 병렬 조사, 코드 변경, 테스트, 독립 리뷰가 필요한 실질적 작업에 사용한다. Codex의 모델별 플래너, 빌더, 러너, 독립 리뷰어로 구현·검증 작업을 분담한다.
+description: Use for substantive work that needs parallel investigation, code changes, tests, and independent review. Splits implementation and verification across Codex's model-specific planner, builder, runner, and independent reviewer.
 ---
 
 # Codex Agent Operations
 
-작업마다 이 스킬을 자동 선택해 필요한 역할만 사용한다. 모든 역할을 호출할 필요는 없지만, 코드·구성·산출물에 의미 있는 변경이 있는 실질적 작업은 완료 전에 `ai_reviewer`의 독립 리뷰를 거친다.
+Select this skill automatically per task and use only the roles needed. You do not need to call every role, but substantive work with meaningful changes to code, config, or deliverables goes through independent review by `ai_reviewer` before completion.
 
-## 역할
+## Roles
 
-| 역할 | 모델 | 노력 | 책임 |
+| Role | Model | Effort | Responsibility |
 | --- | --- | --- | --- |
-| `ai_planner` | `gpt-6-astra` | high | 판단이 필요한 결정과 완료 기준 설계 |
-| `ai_builder` | `gpt-6-sol` | medium | 작은 패치와 직접 관련된 테스트 소유 |
-| `ai_runner` | `gpt-6-luna` | high | 제한된 명령 실행과 관찰 결과 보고 |
-| `ai_reviewer` | `gpt-6-astra` | xhigh | 원래 요구사항 기준의 독립 검토 |
-| `ai_loop` | `gpt-6-sol` | medium | 독립 점수표 기록과 다음 개선 행동 제안 |
+| `ai_planner` | `gpt-6-astra` | high | Design decisions that need judgment and completion criteria |
+| `ai_builder` | `gpt-6-sol` | medium | Own small patches and directly related tests |
+| `ai_runner` | `gpt-6-luna` | high | Run bounded commands and report observations |
+| `ai_reviewer` | `gpt-6-astra` | xhigh | Independent review against the original requirements |
+| `ai_loop` | `gpt-6-sol` | medium | Record independent scorecards and propose the next improvement action |
 
-플래너와 리뷰어는 읽기 전용이다. 러너는 테스트 출력 생성을 위해 작업공간 쓰기 권한을 갖지만 소스는 수정하지 않는다. 빌더만 할당된 소스 파일을 쓴다. 지정 모델을 사용할 수 없으면 더 가벼운 모델로 조용히 대체하지 말고 그 사실을 보고한다.
+The planner and reviewer are read-only. The runner has workspace write access to produce test output but does not modify source. Only the builder writes assigned source files. If a designated model is unavailable, do not silently substitute a lighter model; report it.
 
-## 운영 규칙
+## Operating rules
 
-1. dispatch 전에 결과물, 원래 요구사항, 수용 기준, 입력 경로, 파일별 작성자, 중단 조건을 정한다. 구체적인 계약은 [task-contract.md](references/task-contract.md)를 읽는다.
-2. 서로 독립적인 파일이나 작업은 병렬 실행해도 된다. 같은 파일에는 작성자를 한 명만 둔다.
-3. 동시에 실행하는 워커는 리뷰어를 포함해 최대 3명이다. `[agents] max_concurrent_threads_per_session = 3`으로 config에서도 강제할 수 있다(저장소의 `codex/config.example.toml` 참조). 각 역할은 하위 에이전트를 다시 만들지 않는다.
-4. 역할 사이에는 전체 대화나 전역 상태 대신 해당 작업 경로와 필요한 사실만 짧게 인계한다.
-5. 빌더의 파일과 관련 검증이 안정화된 뒤, 상속되지 않은 새 리뷰 인스턴스를 투입한다. Codex CLI에서는 매 검토마다 `spawn_agent`로 새 스레드를 만들고, 이전 리뷰어 스레드를 `resume_agent`·`send_input`으로 재개하지 않는다. Responses API 멀티에이전트를 직접 쓸 때는 `fork_turns`로 대화를 상속하지 않는다. 새 비상속 컨텍스트임을 확인할 방법이 없으면 독립 검증 미완료로 보고하며 작업을 통과시키지 않는다.
-6. 리뷰어 입력은 원래 요구사항, 수용 기준, 현재 diff, 현재 파일, 검증 증거로 제한한다. 빌더와 오케스트레이터의 대화·추론·결론은 전달하거나 상속하지 않는다.
-7. 리뷰 지적을 고친 뒤에도 이전 리뷰어 스레드를 `resume_agent`로 재개하지 않는다. 같은 격리 조건의 새 리뷰 인스턴스가 변경된 범위와 그 영향만 재검토한다. 수용 기준을 모두 충족하면 종료한다.
+1. Before dispatch, set the deliverable, original requirements, acceptance criteria, input paths, writer per file, and stop condition. For the concrete contract, read [task-contract.md](references/task-contract.md).
+2. Independent files or tasks may run in parallel. Keep only one writer per file.
+3. At most 3 workers run concurrently, including the reviewer. You can also enforce this in config with `[agents] max_concurrent_threads_per_session = 3` (see the repository's `codex/config.example.toml`). No role spawns further sub-agents.
+4. Between roles, hand off only the task path and the needed facts, briefly, instead of the full conversation or global state.
+5. After the builder's files and related verification are stable, bring in a fresh, non-inherited review instance. In Codex CLI, create a new thread with `spawn_agent` for every review, and do not resume a previous reviewer thread with `resume_agent` or `send_input`. When using Responses API multi-agent directly, do not inherit the conversation via `fork_turns`. If there is no way to confirm a fresh, non-inherited context, report independent verification as incomplete and do not pass the work.
+6. Limit reviewer input to the original requirements, acceptance criteria, current diff, current files, and verification evidence. Do not pass or inherit the builder's or orchestrator's conversation, reasoning, or conclusions.
+7. After fixing review findings, still do not resume the previous reviewer thread with `resume_agent`. A new review instance under the same isolation re-reviews only the changed scope and its impact. Finish when all acceptance criteria are met.
 
-## 평가 기반 개선
+## Evaluation-driven improvement
 
-반복 평가가 필요한 작업은 설치된 `$agent-evaluation-loop`를 함께 사용한다. 구현 전에 원래 요구사항, 필수 기준, 차원·가중치·앵커·통과 기준을 고정한다. 각 회차마다 `ai_reviewer`를 상속 없는 새 인스턴스로 실행하며 원래 요구사항과 고정 루브릭·체크리스트의 실제 파일 경로는 주되 이전 점수와 반복 기록은 보여주지 않는다.
+For work that needs repeated evaluation, also use the installed `$agent-evaluation-loop`. Before implementation, fix the original requirements, required criteria, and dimensions, weights, anchors, and pass criteria. Each round, run `ai_reviewer` as a new, non-inherited instance; give it the original requirements and the actual file paths of the fixed rubric/checklist, but do not show previous scores or iteration records.
 
-리뷰어의 구조화된 점수표만 `ai_loop`에 전달해 결정론적으로 집계·기록한다. `ai_loop`는 근거가 있는 다음 수정 또는 증거 보강 한 가지만 제안하며, 하위 에이전트를 호출하거나 소스를 수정하거나 점수를 만들지 않는다. baseline 포함 최대 3회이고 결함 해결이나 새 증거가 없는 회차가 2번 연속이면 `STOP_NOT_COMPLETE`로 멈춘다. 숫자를 올리기 위한 재시도, 기준 완화, 테스트 제거를 허용하지 않는다. 루브릭 변경은 새 버전과 새 baseline으로 시작한다.
+Pass only the reviewer's structured scorecard to `ai_loop` to aggregate and record deterministically. `ai_loop` proposes only one evidence-based next fix or evidence addition, and does not call sub-agents, modify source, or create scores. At most 3 rounds including baseline; if 2 consecutive rounds bring no defect resolution or new evidence, stop with `STOP_NOT_COMPLETE`. Retrying to raise numbers, loosening criteria, or removing tests is not allowed. A rubric change starts a new version with a new baseline.
 
-Codex의 기본 에이전트 수명 주기와 파일 계약을 사용한다. Codex 훅(`~/.codex/hooks.json`)을 추가로 요구하지 않는다. API 설정이나 실험 플래그를 추정해 추가하지 않는다.
+Use Codex's default agent lifecycle and file contracts. Do not additionally require Codex hooks (`~/.codex/hooks.json`). Do not add API settings or experimental flags by guesswork.
 
-개인 설치 시 이 스킬 폴더는 `~/.agents/skills/codex-agent-operations`에, 역할 TOML은 `${CODEX_HOME:-~/.codex}/agents`에 둔다.
+For a personal install, put this skill folder in `~/.agents/skills/codex-agent-operations` and the role TOMLs in `${CODEX_HOME:-~/.codex}/agents`.
