@@ -1,0 +1,6 @@
+interface:
+  display_name: "Design Review"
+  short_description: "Score a UI against a design bar with 상/중/하 findings"
+  default_prompt: "Use $design-review to review this page or app screen against the rubric and report the score for the poc, beta or prod bar."
+policy:
+  allow_implicit_invocation: true

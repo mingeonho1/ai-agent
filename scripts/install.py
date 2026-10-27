@@ -191,6 +191,12 @@ def install(args):
             require_directory(red_root / args.runtime / "agents", "red-team agents")
         )
         pairs += source_files(require_directory(red_root / "skills", "red-team skill"), skills_dest)
+    if args.package in ("web-design", "all"):
+        web_root = package_root / "web-design"
+        agent_sources.append(
+            require_directory(web_root / args.runtime / "agents", "web-design agents")
+        )
+        pairs += source_files(require_directory(web_root / "skills", "web-design skills"), skills_dest)
     entries = [
         (source, destination, eco_contents(source, args.runtime) if args.mode == "eco" else None)
         for root in agent_sources
@@ -249,7 +255,7 @@ def install(args):
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("runtime", choices=("claude", "codex"))
-    parser.add_argument("--package", choices=("operations", "red-team", "all"), default="operations")
+    parser.add_argument("--package", choices=("operations", "red-team", "web-design", "all"), default="operations")
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--project", metavar="PATH")
     target.add_argument("--user", action="store_true")
@@ -268,7 +274,7 @@ def parse_args():
     args = parser.parse_args()
     if args.with_context_hook and args.runtime != "claude":
         parser.error("--with-context-hook is available only for claude")
-    if args.with_context_hook and args.package == "red-team":
+    if args.with_context_hook and args.package in ("red-team", "web-design"):
         parser.error("--with-context-hook requires the operations package")
     return args
 

@@ -1,0 +1,6 @@
+interface:
+  display_name: "SEO + GEO Review"
+  short_description: "Deterministic SEO and AI-search citability score"
+  default_prompt: "Use $seo-geo-review to score this page for SEO and GEO and report the result for the poc, beta or prod bar."
+policy:
+  allow_implicit_invocation: true

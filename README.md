@@ -148,6 +148,17 @@ Claude uses a fresh Fable 5.1 xhigh `ai-red-team`; Codex uses a fresh Astra xhig
 
 The red team finds counterexamples; the final reviewer judges that evidence. The [scope borrowed from Petri and Bloom](red-team/skills/adversarial-review/references/sources.md) is documented. This repo's Skill does not install either project's full framework.
 
+## Web design review
+
+[web-design/](web-design/) installs separately. `design-review` scores a page or app screen with 상/중/하 (high/medium/low) findings, a 0–100 number, and pass/fail for the `poc`, `beta` or `prod` bar; `seo-geo-review` gives a deterministic SEO + GEO score. Both are read-only, and their reports are in Korean.
+
+```bash
+python3 scripts/install.py claude --user --package web-design
+python3 scripts/install.py codex --user --package web-design
+```
+
+Request them with `/design-review` and `/seo-geo-review` in Claude, `$design-review` and `$seo-geo-review` in Codex. Two fresh reviewers (`design-reviewer` / `design_reviewer`) run independently, a 상 counts only when both flag it, and a Python script computes the score. `--package all`, `--project` and `--dry-run` work as above. Scoring, overfitting safeguards, and a v1 → v7 experiment (33 → 82) are in the [web-design README](web-design/README.md).
+
 ## Dual-account split
 
 [dual-account/](dual-account/) splits two Claude accounts by role. The main account (app/CLI) only plans, judges, and synthesizes results; token-heavy building, testing, and research run headless on the second account's CLI, which returns only the final report. Only login is separated; sessions, settings, roles, and Skills are shared with `~/.claude`.
@@ -172,6 +183,7 @@ Combined with token-efficient mode, the main account plans with Opus 5.5 `medium
 
 - [Claude Skill](claude/skills/claude-agent-operations/SKILL.md) · [Claude role settings](claude/agents/) · [Optional hook](claude/hooks/compact-reminder.json)
 - [Codex Skill](codex/skills/codex-agent-operations/SKILL.md) · [Codex role settings](codex/agents/)
+- [Red-team bundle](red-team/README.md) · [Web design review bundle](web-design/README.md)
 - [Techniques taken from official docs and their scope](docs/harness.md)
 - [Evaluation loop rationale and scope](docs/evaluation.md)
 - [Economic news card maker](https://github.com/mingeonho1/economic-news-card-skill) is a separate repo.
