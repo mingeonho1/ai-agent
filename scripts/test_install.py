@@ -35,7 +35,14 @@ class InstallerTests(unittest.TestCase):
             red_agents = self.package / "red-team" / runtime / "agents"
             red_agents.mkdir(parents=True)
             (red_agents / "red-team.txt").write_text(runtime + " red team\n", encoding="utf-8")
-        for package, skill in (("evaluation-loop", "agent-evaluation-loop"), ("red-team", "adversarial-review")):
+            web_agents = self.package / "web-design" / runtime / "agents"
+            web_agents.mkdir(parents=True)
+            (web_agents / "design-reviewer.txt").write_text(runtime + " reviewer\n", encoding="utf-8")
+        for package, skill in (
+            ("evaluation-loop", "agent-evaluation-loop"),
+            ("red-team", "adversarial-review"),
+            ("web-design", "design-review"),
+        ):
             skill_dir = self.package / package / "skills" / skill
             skill_dir.mkdir(parents=True)
             (skill_dir / "SKILL.md").write_text(skill + "\n", encoding="utf-8")
@@ -89,6 +96,7 @@ class InstallerTests(unittest.TestCase):
         self.assertTrue(codex_project.joinpath(".agents/skills/agent-evaluation-loop/SKILL.md").is_file())
         self.assertTrue(claude_project.joinpath(".claude/skills/agent-evaluation-loop/SKILL.md").is_file())
         self.assertFalse(codex_project.joinpath(".codex/agents/red-team.txt").exists())
+        self.assertFalse(codex_project.joinpath(".codex/agents/design-reviewer.txt").exists())
 
     def write_role_fixtures(self):
         claude_agents = self.package / "claude" / "agents"
@@ -188,6 +196,25 @@ class InstallerTests(unittest.TestCase):
             self.assertFalse((project / ("." + runtime) / "agents/builder.txt").exists())
             self.assertFalse((project / skill_root / "skills/agent-evaluation-loop").exists())
 
+    def test_web_design_installs_independently_for_both_runtimes(self):
+        for runtime, skill_root in (("claude", ".claude"), ("codex", ".agents")):
+            project = self.root / ("web-" + runtime)
+            result = self.run_installer(runtime, "--project", str(project), "--package", "web-design")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((project / ("." + runtime) / "agents/design-reviewer.txt").is_file())
+            self.assertTrue((project / skill_root / "skills/design-review/SKILL.md").is_file())
+            self.assertFalse((project / ("." + runtime) / "agents/builder.txt").exists())
+            self.assertFalse((project / ("." + runtime) / "agents/red-team.txt").exists())
+            self.assertFalse((project / skill_root / "skills/adversarial-review").exists())
+            self.assertFalse((project / skill_root / "skills/agent-evaluation-loop").exists())
+
+    def test_web_design_only_rejects_operations_hook_without_writes(self):
+        project = self.root / "invalid-web-project"
+        result = self.run_installer("claude", "--project", str(project), "--package", "web-design", "--with-context-hook")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("requires the operations package", result.stderr)
+        self.assertFalse(project.exists())
+
     def test_all_packages_reinstall_and_collision_are_preflighted(self):
         project = self.root / "all-project"
         arguments = ("codex", "--project", str(project), "--package", "all")
@@ -196,6 +223,8 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((project / ".codex/agents/builder.txt").is_file())
         self.assertTrue((project / ".codex/agents/red-team.txt").is_file())
+        self.assertTrue((project / ".codex/agents/design-reviewer.txt").is_file())
+        self.assertTrue((project / ".agents/skills/design-review/SKILL.md").is_file())
         self.assertTrue((project / ".agents/skills/agent-evaluation-loop/SKILL.md").is_file())
         collision_project = self.root / "conflict-project"
         collision = collision_project / ".agents/skills/adversarial-review/SKILL.md"
