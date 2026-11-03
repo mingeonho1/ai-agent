@@ -27,6 +27,7 @@ DEMOTE = {"7a", "24a", "48", "58"}  # 상 -> 중
 DROP = {"20", "32", "1"}  # 1 = typeface choice: suggestion only (rubric §2b)
 APP_SKIP = set("6a 6b 8 42 44a 44b 58 59 77 78 79 85".split())
 COUNTED_GRADES = {"FAIL", "REFLEX", "WARN"}
+ALIAS = {"m4": "39b"}  # same physical issue (control size) under two ids -> one issue (rubric §4)
 
 
 def die(msg):
@@ -35,7 +36,10 @@ def die(msg):
 
 
 def norm_gate(g):
-    return None if g in (None, "", "null") else str(g).strip().lower()
+    if g in (None, "", "null"):
+        return None
+    g = str(g).strip().lower()
+    return ALIAS.get(g, g)
 
 
 def gate_severity(gate, grade=None):
@@ -238,7 +242,7 @@ def score(review, lint, bar, waivers):
     }
 
 
-def trend(out_dir, target, total):
+def previous_runs(out_dir, target):
     prev = []
     for p in sorted(Path(out_dir).glob("*.json"))[-50:]:
         try:
@@ -246,24 +250,61 @@ def trend(out_dir, target, total):
         except (OSError, json.JSONDecodeError):
             continue
         if d.get("target") == target and "total" in d:
-            prev.append(d["total"])
-    return prev[-4:] + [total]
+            prev.append(d)
+    return prev
+
+
+def title_tokens(t):
+    return set(re.sub(r"[^\w\s]", " ", (t or "").lower()).split())
+
+
+def same_round_issue(f, g):  # same_issue, or (both gates null) title token Jaccard >= 0.5
+    if same_issue(f, g):
+        return True
+    if norm_gate(f.get("gate")) or norm_gate(g.get("gate")):
+        return False
+    a, b = title_tokens(f.get("title")), title_tokens(g.get("title"))
+    return bool(a and b) and len(a & b) / len(a | b) >= 0.5
+
+
+def compare_rounds(prev, cur):
+    """Previous run's issues vs this run's -> resolved / kept / new."""
+    old, used = prev.get("issues") or [], set()
+    kept, new = [], []
+    for x in cur:
+        j = next((j for j, o in enumerate(old) if j not in used and same_round_issue(x, o)), None)
+        if j is None:
+            new.append(x)
+        else:
+            used.add(j)
+            kept.append(x)
+    return {"prev_total": prev["total"], "resolved": [o for j, o in enumerate(old) if j not in used],
+            "kept": kept, "new": new}
 
 
 def render(r, history):
     c = r["counts"]
+    listed = {s: sum(1 for x in r["issues"] if x["severity"] == s) for s in RANK}
+    note = ""
+    if r["runs"] > 1 and listed != c:
+        note = " (두 검수 평균, 아래 목록은 합친 " + " · ".join(f"{s} {listed[s]}건" for s in RANK if listed[s] != c[s]) + ")"
     mark = "✅ 통과" if r["pass"] else "❌ 미달"
     lines = [
         f"## 디자인 검수 — {r['target']}",
         "",
         f"**{r['total']}/100 ({r['grade']})** · 기준 `{r['bar']}` {mark}"
         + ("" if r["pass"] else f" — {', '.join(r['fail_reasons'])}"),
-        f"UX {r['ux']}/50 (휴리스틱 {r['heuristic_raw']}) · 완성도 {r['craft']}/50 · 상 {c['상']} · 중 {c['중']} · 하 {c['하']}"
+        f"UX {r['ux']}/50 (휴리스틱 {r['heuristic_raw']}) · 완성도 {r['craft']}/50 · 상 {c['상']} · 중 {c['중']} · 하 {c['하']}{note}"
         + f" · lint {'실행' if r['lint'] == 'ran' else '건너뜀'} · 검수 {r['runs']}회"
         + (f" (각 {' / '.join(map(str, r['run_totals']))}점, 평균)" if r.get("run_totals") else ""),
     ]
     if len(history) > 1:
         lines.append("추이: " + " → ".join(map(str, history)))
+    if r.get("compare"):
+        cp = r["compare"]
+        lines += ["", "### 지난 검수 대비", f"지난 검수 {cp['prev_total']}점 → 이번 {r['total']}점"]
+        for label, key in (("해결됨", "resolved"), ("그대로", "kept"), ("새로 발견", "new")):
+            lines.append(f"- {label} {len(cp[key])}건" + (": " + " / ".join(x.get("title", "") for x in cp[key]) if cp[key] else ""))
     if r["summary"]:
         lines += ["", r["summary"]]
     if r["strengths"]:
@@ -333,7 +374,10 @@ def main():
     if a.out_dir:
         out = Path(a.out_dir)
         out.mkdir(parents=True, exist_ok=True)
-        history = trend(out, r["target"], r["total"])
+        prev = previous_runs(out, r["target"])
+        history = [d["total"] for d in prev][-4:] + [r["total"]]
+        if prev:
+            r["compare"] = compare_rounds(prev[-1], r["issues"])
         slug = re.sub(r"[^A-Za-z0-9]+", "-", r["target"]).strip("-")[:60] or "target"
         stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         (out / f"{stamp}-{slug}.json").write_text(json.dumps(r, ensure_ascii=False, indent=2), encoding="utf-8")

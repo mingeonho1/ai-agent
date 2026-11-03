@@ -138,6 +138,8 @@ Total  = round(UX + Craft)
 ```
 
 - Two independent runs (the default): a 상 counts only when both runs flag the same issue (same gate, or a shared `file:line`) as 상. A 상 from one run alone is scored as 중 and listed as 재확인 필요. Each run is scored on its own and the total is their mean; 중/하 counts are the mean rounded up.
+- `M4` and `39b` are one physical issue (control size): the scorer maps `M4` to `39b`, so either id from either run merges into one finding.
+- In a two-run report the 상/중/하 counts are the run means; when they differ from the merged list below them, the report says so.
 - Lint findings count once per gate id, not per occurrence. A reviewer finding that names the same gate as a lint finding merges into it.
 - Grade: A ≥ 90 · B ≥ 80 · C ≥ 70 · D ≥ 60 · F < 60.
 

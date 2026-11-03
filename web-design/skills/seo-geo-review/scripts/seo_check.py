@@ -2,7 +2,7 @@
 """Score a page 0-100 for SEO + GEO (AI-search citability) and report what is missing, tagged 상/중/하.
 
 Implements rubric.md (checks, severity, bars). stdlib only.
-Usage: seo_check.py --target <html file | site dir | http(s) URL> [--bar poc|beta|prod] [--json] [--out-dir .seo-geo-review]
+Usage: seo_check.py --self-test | seo_check.py --target <html file | site dir | http(s) URL> [--bar poc|beta|prod] [--json] [--out-dir .seo-geo-review]
 Prints a Korean markdown report (or JSON with --json); writes <out-dir>/<timestamp>-<slug>.json when --out-dir is given.
 Fetches only the target and its root files (/robots.txt /sitemap.xml /llms.txt). Never modifies the target.
 Exit 0 = bar met, 1 = bar not met, 2 = bad input.
@@ -37,11 +37,19 @@ ENTITY_TYPES = {"organization", "localbusiness", "product", "offer", "service", 
 FAQ_HEAD = re.compile(r"faq|자주\s*묻는|자주\s*하는\s*질문", re.I)
 ENTITY_CUE = re.compile(r"입니다|합니다|드립니다|운영|제공|판매|배송|전문|만드는|만들어|서비스|브랜드|매장|"
                         r"\b(?:is|are|we|offers?|provides?|sells?|delivers?|based in)\b", re.I)
+# G6 numeric facts. Examples (see self_test): "100회 무료", "월 3,000 크레딧", "50 credits", "응답 2초",
+# "14일", "3개월", "99.9%", "2배", "120명", "30곳", "10페이지", "5GB", "₩9,900", "09:00".
 FACT = re.compile(
     r"[₩$€¥]\s?\d[\d,.]*"
     r"|\d[\d,.]*\s?(?:원|만원|천원|%|퍼센트|kcal|칼로리|인분|개월|시간|분|초|주|일|개|명|년|월|곳|종|가지|호점|점|건|배|세"
-    r"|(?:kg|mg|ml|km|cm|mm|g|l|m|usd|krw|won|minutes?|mins?|hours?|hrs?|days?|weeks?|months?|years?|stores?|items?|people)(?![a-z]))"
+    r"|회|크레딧|페이지|쪽"
+    r"|(?:kg|mg|ml|km|cm|mm|g|l|m|gb|mb|tb|kb|usd|krw|won|credits?|pages?|times|x|minutes?|mins?|hours?|hrs?|seconds?|secs?"
+    r"|days?|weeks?|months?|years?|stores?|items?|people|users?)(?![a-z]))"
     r"|\b\d{1,2}:\d{2}\b", re.I)
+# G4: a verb phrase (Korean predicate ending or common English verb) next to the brand name
+VERB = re.compile(r"[가-힣](?:다|요)(?=[\s.!?,]|$)|(?:하는|되는|해\s?드|할\s?수|돕|찾아|만들|보세요|하세요)"
+                  r"|\b(?:is|are|helps?|lets?|makes?|gives?|finds?|searches|turns?|builds?|runs?|connects?|offers?|provides?)\b", re.I)
+WELL_KNOWN = "/.well-known/"
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 TEL = re.compile(r"(?:\+?82[-\s]?)?0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}|\b1[5-9]\d{2}-\d{4}\b")
 OPERATOR = re.compile(r"사업자\s*(?:등록)?\s*번호|대표자|통신판매|주소|오시는\s*길|[가-힣]+(?:시|도)\s+[가-힣]+(?:구|군|시)\s"
@@ -257,6 +265,17 @@ def parse_robots(txt):
     return groups
 
 
+def well_known_blocked(robots_txt):
+    """True when * or an AI bot group disallows /.well-known/ (or a prefix covering it) and no longer Allow reopens it."""
+    for g in parse_robots(robots_txt):
+        if not ({"*"} | {b.lower() for b in AI_BOTS}) & set(g["agents"]):
+            continue
+        hits = [(len(v), k) for k, v in g["rules"] if v and WELL_KNOWN.startswith(v.rstrip("*$"))]
+        if hits and max(hits)[1] == "disallow":
+            return True
+    return False
+
+
 def blocked_bots(robots_txt):
     groups = parse_robots(robots_txt)
     out = []
@@ -446,8 +465,12 @@ def run_checks(t):
         R["G1"] = (3, "robots.txt 없음(부분 점수)")
     else:
         blocked = blocked_bots(t["robots"])
-        R["G1"] = (5 if not blocked else 2 if len(blocked) < len(AI_BOTS) else 0,
-                   "차단: " + ", ".join(blocked) if blocked else "5개 AI 봇 모두 허용")
+        if well_known_blocked(t["robots"]):
+            R["G1"] = (0, "/.well-known/ 차단: 도메인 소유권 검증·OAuth 메타데이터 경로",
+                       "robots.txt에 `Allow: /.well-known/`을 넣어 /.well-known/ 경로를 연다")
+        else:
+            R["G1"] = (5 if not blocked else 2 if len(blocked) < len(AI_BOTS) else 0,
+                       "차단: " + ", ".join(blocked) if blocked else "5개 AI 봇 모두 허용")
     R["G2"] = (3, "") if t["llms"] else (0, "")
     n = len(visible)
     R["G3"] = (6, f"{n}자") if n >= 500 else (0, f"{n}자")
@@ -468,7 +491,11 @@ def run_checks(t):
         R["G4"] = (0, "h1 다음 문단 없음")
     else:
         L = len(first)
-        cue = bool(ENTITY_CUE.search(first))
+        h1 = next((rec_text(r) for r in recs if r["tag"] == "h1"), "")
+        names = [x.strip() for x in re.split(r"\s[|\-–—:·]\s|[|]", title) + [pg.meta("og:site_name") or ""]]
+        names += [h1] if len(h1) <= 20 else []
+        branded = any(len(n) >= 2 and n.lower() in first.lower() for n in names) and VERB.search(first)
+        cue = bool(ENTITY_CUE.search(first) or branded)
         snippet = first if L <= 60 else first[:57] + "…"
         R["G4"] = (4 if 20 <= L <= 200 and cue else 2 if 200 < L <= 320 and cue else 0, f"{L}자 “{snippet}”")
     answers, div_answers = [], []
@@ -541,10 +568,10 @@ def score(label, R, extras, bar):
     checks = []
     for cid, *_ in CHECKS:
         m = META[cid]
-        earned, found = R[cid]
+        earned, found, *fix = R[cid]
         status = "pass" if earned == m["points"] else "fail" if earned == 0 else "partial"
         checks.append({"id": cid, "category": m["cat"], "points": m["points"], "earned": earned, "severity": m["severity"],
-                       "status": status, "title": m["fail"], "found": found, "fix": m["fix"]})
+                       "status": status, "title": m["fail"], "found": found, "fix": fix[0] if fix else m["fix"]})
     total = sum(c["earned"] for c in checks)
     grade = next(g for g, th in (("A", 90), ("B", 80), ("C", 70), ("D", 60), ("F", 0)) if total >= th)
     subtotals = {}
@@ -609,8 +636,23 @@ def render(r, history):
     return "\n".join(lines)
 
 
+def self_test():
+    for text, n in (("100회 무료 · 월 3,000 크레딧 · 50 credits · 응답 2초 · 14일", 5),
+                    ("3개월 99.9% 2배 120명 30곳", 5), ("10페이지 5GB 200MB ₩9,900 09:00", 5), ("버전 2 출시", 0)):
+        got = len({re.sub(r"\s+", "", m.group(0).lower()) for m in FACT.finditer(text)})
+        assert got == n, (text, got)
+    assert well_known_blocked("User-agent: *\nDisallow: /.well-known/")
+    assert well_known_blocked("User-agent: GPTBot\nDisallow: /.well")
+    assert not well_known_blocked("User-agent: *\nDisallow: /\nAllow: /.well-known/")
+    assert not well_known_blocked("User-agent: *\nDisallow: /admin")
+    assert VERB.search("완드는 특허 검색을 돕는 서비스") and not VERB.search("완드 특허 검색")
+    print("self-test ok")
+
+
 def main():
     ap = argparse.ArgumentParser()
+    if sys.argv[1:] == ["--self-test"]:
+        return self_test()
     ap.add_argument("--target", required=True)
     ap.add_argument("--bar", choices=BARS, default="poc")
     ap.add_argument("--json", action="store_true")
