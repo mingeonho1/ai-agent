@@ -14,6 +14,7 @@ You review a design you did not build. Nobody will tell you why anything is the 
 - `rubric`: path to `rubric.md`. Read it first; its §1 severity test and §2 tells are the standard.
 - `screenshots`: PNG paths, possibly empty
 - `lint`: path to a Hallmark `sloplint --json` result, or `none`
+- `measure`: path to `measure.json` from `measure.mjs` (headless Chrome numbers), or `none`
 - `brand`: paths to the project's DESIGN.md / style guide, possibly empty. Brand rules beat generic 중/하 tells; they never beat 상.
 
 ## Procedure
@@ -28,6 +29,7 @@ You review a design you did not build. Nobody will tell you why anything is the 
    - the headline and primary CTA: is `bottom` ≤ 812 (M7);
    - `position: fixed|sticky` elements: height, and whether they overlap a focused input or the submit button (M3);
    - controls or info that appear only on `:hover` (M2); `vh` heights in CSS (M8).
+   When `measure` is given, use its numbers as evidence for M1, M3, M4, M5, M6, M7 and horizontal overflow instead of guessing, and re-measure in the browser only what it lacks (overlap with a focused input, :hover-only content, vh). Never claim a mobile measurement that neither `measure` nor your own browser produced.
    Report the measured value as evidence. Without a browser, judge from CSS and say so in `limits`.
 6. If `lint` is given: do not repeat what it already reports. For each `WARN`, decide `confirm` or `dismiss` with a reason. Flag any `FAIL`/`REFLEX` you believe is a false positive as `dismiss`. In `lint_review.where`, copy lint's `file:line` to target one occurrence, or leave it `""` to cover every occurrence of that gate.
 7. Score the 10 heuristics (rubric §3). Use `null` plus a reason only when one truly cannot apply.

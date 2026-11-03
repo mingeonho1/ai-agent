@@ -22,6 +22,8 @@ Invoke with `/design-review` and `/seo-geo-review` in Claude, `$design-review` a
 
 Optional: a browser tool (Playwright MCP, Claude Browser or Claude in Chrome) lets the reviewer open the page at 1440/768/375 widths and press the controls. [Hallmark](https://github.com/Nutlope/hallmark) `sloplint` adds a rule-based lint pass, and `puppeteer-core` plus Chrome adds screenshots. Without them the Skill says so and continues.
 
+Optional: Node 22+ and Chrome let `scripts/measure.mjs` (no npm dependencies) capture 1440/768/375 screenshots and a `measure.json` of mobile numbers: horizontal overflow at 320–1920, 375px tap targets, input font size and keyboard hints, whether the h1 and primary CTA sit in the first screen, fixed/sticky elements and console errors. Both reviewers use those numbers as evidence, so mobile checks no longer depend on the reviewer's browser being able to resize.
+
 ## Usage
 
 ```
@@ -51,6 +53,8 @@ Polish (50)   = 50 − (10 per 상 + 4 per 중 + 1 per 하)
 Total         = UX + Polish
 ```
 
+The same issue reported under `M4` and `39b` (control size) counts once. When the same target was scored before in `--out-dir`, the report adds a "지난 검수 대비" section: fixed / still open / new since the last round, plus the score change, matched by gate id, `file:line` or title similarity. Reviewers never see earlier rounds.
+
 SEO + GEO score, computed only by `seo_check.py` from 30 checks on the raw HTML (no JS is run, because most AI crawlers do not run it): `technical 25 + on-page 20 + structured data 15 + GEO 25 + performance 15 = 100`. It fetches only the target and `/robots.txt`, `/sitemap.xml`, `/llms.txt`.
 
 | Bar | Use | Design passes when | SEO + GEO passes when |
@@ -71,7 +75,8 @@ Fixing a page to one review's wording tends to add a new tell, and a single revi
 | --- | --- |
 | Two independent runs | Two reviewers run in parallel without seeing each other. A 상 counts only when both flag the same issue (same gate id or same `file:line`) as 상; otherwise it counts as 중 and is listed as "needs recheck". The total is the mean of the two runs |
 | Product decisions set apart | Backend wiring, real photos, legal text and real contacts cannot be fixed by design. Such 중/하 are `kind: product`, listed separately and left out of the score; only `prod` blocks on them. A 상 is never a product decision |
-| Fix to the rubric, not the report | The fixer gets the findings plus the rubric's 상 lines as hard constraints and checks its own diff against them. Smallest change, no copy written to please a reviewer. Stop after two rounds with no gain in the two-run mean |
+| Fix to the rubric, not the report | The fixer gets the findings plus the rubric's 상 lines as hard constraints and checks its own diff against them. Smallest change, no copy written to please a reviewer. Before handing back it also checks that status regions are not hidden from assistive tech, that no fixed/sticky element covers a CTA or focused input at 375, that `:active`/`:hover`/`:disabled` keep text contrast, and that language or variant pages got the same fix. Stop after two rounds with no gain in the two-run mean |
+| Layout changes need approval | Re-composing the layout (column count, hero arrangement, section order, adding or removing sections) waits for the user's go-ahead even when a finding suggests it |
 
 ## Experiment summary
 
@@ -103,8 +108,8 @@ Mobile (375×812)
 
 - One page, one builder model, one reviewer model. The scores show the loop moves a page in the right direction; they are not a calibrated measure of design quality.
 - Two runs shrink reviewer noise but do not remove it. Treat a few points of difference as noise.
-- Without a browser tool the reviewer judges from source and says so in `limits`; measured items (touch targets, input font size, first viewport) then become estimates.
-- `seo-geo-review` is rule-based: it approximates sentence quality, never sees the rendered DOM, external CSS/JS or real image weight, and only reports whether `sitemap.xml` exists.
+- Without `measure.mjs` (Node 22+ and Chrome) or a browser tool, measured items (touch targets, input font size, first viewport) become estimates and the reviewer says so in `limits`. `measure.mjs` does not apply the WCAG 2.5.8 spacing exception, so small targets with enough clear space still appear in its list for the reviewer to judge.
+- `seo-geo-review` is rule-based: it approximates sentence quality, never sees the rendered DOM, external CSS/JS or real image weight, and only reports whether `sitemap.xml` exists. Korean units (회, 건, 크레딧 and others) count as citable numbers, a first paragraph passes G4 with the brand name plus a verb phrase, and a `robots.txt` that blocks `/.well-known/` fails G1. `python3 skills/seo-geo-review/scripts/seo_check.py --self-test` runs the examples.
 - Reports are Korean only.
 
 ## Sources

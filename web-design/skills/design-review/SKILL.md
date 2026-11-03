@@ -2,7 +2,7 @@
 name: design-review
 description: Score a page or app screen against a common design bar and report 상/중/하 findings, a 0-100 score and pass/fail for the poc, beta or prod bar. Never modifies project source. Use for "디자인 검수", "디자인 점수", "AI 티 나는지 봐줘", "PoC 디자인 기준 넘었어?", "/design-review".
 argument-hint: "[path|url] [--bar poc|beta|prod] [--app]"
-allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/score.py *), Bash(node *sloplint.mjs *), Bash(git diff *), Bash(mkdir -p .design-review*), Bash(find *), Edit(.design-review/**)
+allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/score.py *), Bash(node *sloplint.mjs *), Bash(node ${CLAUDE_SKILL_DIR}/scripts/measure.mjs *), Bash(node --version), Bash(git diff *), Bash(mkdir -p .design-review*), Bash(find *), Edit(.design-review/**)
 ---
 
 # design-review
@@ -40,6 +40,17 @@ node <sloplint> <target-or---url URL> --json --render [--scope app] > lint.json
 - `--render` needs `puppeteer-core` and Chrome; if the summary says the render tier did not run, keep the static result and note it.
 - Collect the screenshots it wrote: `find <run dir> <target dir> -path '*shots*' -name '*.png' -newer <run dir>`.
 
+## 2b. Measure (optional, deterministic)
+
+If `node --version` is 22 or newer, Chrome is installed, and the target is a URL (or a local HTML file, passed as a path and opened via `file://`):
+
+```bash
+node ${CLAUDE_SKILL_DIR}/scripts/measure.mjs <url-or-file> --out <run dir>
+```
+
+It writes `shot-1440.png`, `shot-768.png`, `shot-375.png` (+ `shot-<w>-full-<n>.png` tiles when capture did not time out) and `measure.json` (overflow at 320–1920, 375px tap targets, input font-size/type/inputmode/autocomplete, h1 and primary CTA bottom vs 812, fixed/sticky elements, console errors). Add the screenshots to the reviewers' `screenshots` and pass `measure: <run dir>/measure.json`.
+Missing node 22/Chrome or exit 2 → one line `측정 건너뜀 — <reason>`, `measure: none`, continue.
+
 ## 3. Fresh-context review (two independent runs)
 
 Spawn two fresh read-only reviewer subagents in the same message, so they run in parallel and never see each other. Claude uses `design-reviewer`; Codex uses `design_reviewer` (a new thread per run with `spawn_agent`, never `resume_agent`, no inherited context). Give each its own browser tab or page. Pass paths and facts only, never your own opinion of the design:
@@ -49,11 +60,14 @@ target: <target>   surface: <page|app>
 rubric: ${CLAUDE_SKILL_DIR}/rubric.md
 screenshots: <png paths, or none>
 lint: <run dir>/lint.json or none
+measure: <run dir>/measure.json or none
 brand: <brand file paths, or none>
 browser: use only tab <id>
 ```
 
 Save each JSON block exactly as returned to `<run dir>/review-a.json` and `review-b.json`. If a reply has no valid JSON, re-ask that agent once for the JSON only. If one run still fails, score the other alone and say the result is single-run.
+
+Reviewers never see previous rounds' results (keeps each run independent); `score.py` compares rounds itself under `지난 검수 대비`.
 
 Why two runs: on the same page one run's 중/하 list shifts the score by about ±10. The scorer counts a 상 only when both runs flag the same issue as 상, and takes the mean of the two runs.
 No reviewer agent installed → tell the user to install the package (`python3 scripts/install.py <claude|codex> --user --package web-design`) and stop; do not review in this thread, since the context that built the page is its weakest reviewer.
@@ -81,5 +95,7 @@ Fixing to one review's wording overfits: a patch tends to add a new tell, and th
 
 - Fix only design items under 상/중/하. Leave `제품 결정 필요` items to the user. Fix a `재확인 필요` item only if you can reproduce it.
 - Give the fixer the findings plus the rubric's 상 lines (§1 test, §2 상 block, §2a 상 block) as hard constraints. Before handing back it checks its own diff against them; a fix may not add a 상 tell (example: disabling a form with `opacity` alone is `39a`).
+- A change that re-composes layout (column count, hero arrangement, section order, removing or adding sections) needs the user's go-ahead first, even when a finding suggests it.
+- Fixer self-check before handing back, besides the rubric 상 lines: status/announcement regions (`role=status`, `aria-live`) are not hidden from assistive tech; at 375 no fixed/sticky element covers a CTA or a focused input; `:active`/`:hover`/`:disabled` states keep text contrast; if the site has language or variant pages, every one of them got the same fix.
 - Smallest change that solves the user's problem. No new sections, and no copy written to satisfy a reviewer phrase; prefer removing to adding.
 - Re-run §3–§5 on the result. Stop after two rounds with no gain in the two-run mean and report what is left; further rounds chase reviewer noise.
