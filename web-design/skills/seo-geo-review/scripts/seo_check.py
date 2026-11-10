@@ -28,7 +28,9 @@ BARS = {
     "prod": {"min_total": 90, "max_mid": 0},
 }
 CATS = {"T": "기술", "O": "온페이지", "S": "구조화", "G": "GEO", "P": "성능"}
-AI_BOTS = ["GPTBot", "ClaudeBot", "PerplexityBot", "Google-Extended", "OAI-SearchBot"]
+AI_BOTS = ["GPTBot", "ClaudeBot", "Claude-SearchBot", "PerplexityBot", "OAI-SearchBot"]
+# Google-Extended only controls Gemini training/grounding, not Search inclusion: reported, not scored.
+GOOGLE_EXTENDED = "Google-Extended"
 GENERIC_LINKS = {"자세히 보기", "자세히", "더 보기", "더보기", "여기", "여기를 클릭", "클릭", "바로가기",
                  "learn more", "click here", "read more", "more", "here", "details"}
 ENTITY_TYPES = {"organization", "localbusiness", "product", "offer", "service", "corporation", "ngo",
@@ -80,9 +82,9 @@ CHECKS = [
     ("O7", 2, "하", "favicon 링크 없음", "`<link rel=\"icon\" href=\"…\">`를 넣는다"),
     ("S1", 5, "중", "JSON-LD가 없거나 파싱되지 않음", "`<script type=\"application/ld+json\">`을 유효한 JSON으로 넣는다"),
     ("S2", 5, "중", "Organization/LocalBusiness/Product/Offer/Service 스키마 없음", "사업 주체나 상품·서비스를 JSON-LD로 표시한다"),
-    ("S3", 5, "중", "FAQ 섹션은 있으나 FAQPage JSON-LD가 없거나 본문과 불일치", "본문에 보이는 질문 그대로 FAQPage JSON-LD를 만든다"),
-    ("G1", 5, "중", "AI 크롤러 허용 여부 문제(robots.txt)", "robots.txt에서 GPTBot·ClaudeBot·PerplexityBot·Google-Extended·OAI-SearchBot를 `Disallow: /`로 막지 않는다"),
-    ("G2", 3, "하", "llms.txt 없음", "사이트 루트에 `llms.txt`로 사이트 요약과 핵심 링크를 둔다"),
+    ("S3", 5, "하", "FAQ 섹션은 있으나 FAQPage JSON-LD가 없거나 본문과 불일치", "본문에 보이는 질문 그대로 FAQPage JSON-LD를 만든다. 다른 검색엔진과 AI 답변이 Q&A를 매칭하는 데 도움이 되며 Google FAQ 리치 결과는 더 이상 없다"),
+    ("G1", 5, "중", "AI 크롤러 허용 여부 문제(robots.txt)", "robots.txt에서 GPTBot·ClaudeBot·Claude-SearchBot·PerplexityBot·OAI-SearchBot를 `Disallow: /`로 막지 않는다"),
+    ("G2", 3, "하", "llms.txt 없음", "선택 사항: 사이트 루트에 `llms.txt`로 사이트 요약과 핵심 링크를 둔다(Google은 사용하지 않는 관례)"),
     ("G3", 6, "상", "초기 HTML에 본문 텍스트가 500자 미만(JS 렌더링 의심)", "SSR/SSG로 본문을 초기 HTML에 담는다. AI 크롤러 대부분은 JS를 실행하지 않는다"),
     ("G4", 4, "중", "h1 다음 첫 문단이 무엇·누구·어디를 200자 안에 말하지 않음", "h1 바로 아래에 '○○은 △△에서 □□를 제공하는 …입니다' 형태의 한두 문장을 둔다"),
     ("G5", 3, "중", "FAQ 답변이 결론 먼저·독립적인 40–400자가 아님", "답변 첫 문장에 결론을 쓰고, 질문 없이 읽어도 이해되게 40–400자로 쓴다"),
@@ -276,10 +278,10 @@ def well_known_blocked(robots_txt):
     return False
 
 
-def blocked_bots(robots_txt):
+def blocked_bots(robots_txt, bots=AI_BOTS):
     groups = parse_robots(robots_txt)
     out = []
-    for bot in AI_BOTS:
+    for bot in bots:
         sel = [g for g in groups if bot.lower() in g["agents"]] or [g for g in groups if "*" in g["agents"]]
         rules = [r for g in sel for r in g["rules"]]
         if ("disallow", "/") in rules and ("allow", "/") not in rules:
@@ -560,7 +562,8 @@ def run_checks(t):
         swap = "display=swap" in gf_text
         R["P5"] = (1 * pre + 1 * swap, f"preconnect {'O' if pre else 'X'} · display=swap {'O' if swap else 'X'}")
 
-    extras = {"robots": t["robots"] is not None, "sitemap": t["sitemap"] is not None, "llms": t["llms"] is not None}
+    extras = {"robots": t["robots"] is not None, "sitemap": t["sitemap"] is not None, "llms": t["llms"] is not None,
+              "google_extended_blocked": bool(t["robots"]) and bool(blocked_bots(t["robots"], [GOOGLE_EXTENDED]))}
     return R, extras
 
 
@@ -632,6 +635,8 @@ def render(r, history):
     f = r["files"]
     lines += ["", "참고(점수 미반영): " + " · ".join(f"{n} {'있음' if f[k] else '없음'}"
                                                  for n, k in (("robots.txt", "robots"), ("sitemap.xml", "sitemap"), ("llms.txt", "llms")))]
+    if f.get("google_extended_blocked"):
+        lines.append("참고(점수 미반영): Google-Extended 차단됨 — Gemini 학습·grounding만 제어하며 Google 검색 노출과 무관")
     lines.append("검수 한계: 원본 HTML만 분석(렌더링 후 DOM·외부 CSS/JS 미분석). 문장 품질은 규칙으로만 근사한다.")
     return "\n".join(lines)
 
@@ -645,6 +650,9 @@ def self_test():
     assert well_known_blocked("User-agent: GPTBot\nDisallow: /.well")
     assert not well_known_blocked("User-agent: *\nDisallow: /\nAllow: /.well-known/")
     assert not well_known_blocked("User-agent: *\nDisallow: /admin")
+    assert blocked_bots("User-agent: Claude-SearchBot\nDisallow: /") == ["Claude-SearchBot"]
+    assert not blocked_bots("User-agent: Google-Extended\nDisallow: /")
+    assert blocked_bots("User-agent: Google-Extended\nDisallow: /", [GOOGLE_EXTENDED]) == [GOOGLE_EXTENDED]
     assert VERB.search("완드는 특허 검색을 돕는 서비스") and not VERB.search("완드 특허 검색")
     print("self-test ok")
 

@@ -11,7 +11,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 const CAPTURE_MS = 15000;
 const die = (m) => { console.error(`measure.mjs: ${m}`); process.exitCode = 2; throw new Error(m); };
@@ -26,7 +26,7 @@ function args() {
     else if (!o.url) o.url = a[i];
   }
   if (!o.url || !o.out) die("usage: node measure.mjs <url> --out <run dir> [--chrome <path>]");
-  if (existsSync(o.url) && !/^[a-z]+:/i.test(o.url)) o.url = "file://" + join(process.cwd(), o.url).replace(/^\/\//, "/");
+  if (existsSync(o.url) && !/^[a-z]+:/i.test(o.url)) o.url = "file://" + resolve(o.url);
   return o;
 }
 

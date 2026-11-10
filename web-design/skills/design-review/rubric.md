@@ -87,7 +87,7 @@ Measure on the page, do not eyeball. Ids are `M*`.
 - A fixed or sticky element covers the focused input, the submit button or content the user must read, including with the on-screen keyboard open (M3)
 
 중
-- Primary controls under 44px tall or wide on touch (nav CTA, form buttons, tabs, toggles) (M4)
+- Primary controls under 44px tall or wide on touch (nav CTA, form buttons, tabs, toggles) (M4; WCAG 2.5.5 AAA / platform guidance, not AA)
 - Text inputs under 16px font, so iOS zooms the page on focus (M5)
 - Wrong or missing keyboard and fill hints: phone without `type=tel` or `inputmode`, email without `type=email`, missing `autocomplete` on name, tel, email, address (M6)
 - First screen at 375×812 does not show the headline and the primary action (M7)

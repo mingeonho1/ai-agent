@@ -9,7 +9,7 @@ Neither Skill edits project source. Reports written by `score.py` and `seo_check
 
 ## Install
 
-Run from the repository root.
+Run `python3 scripts/install.py` from the ai-agent repository root.
 
 ```bash
 python3 scripts/install.py claude --user --package web-design
@@ -18,7 +18,7 @@ python3 scripts/install.py codex --user --package web-design
 
 To install into a specific project, use `--project PATH` instead of `--user`. `--package all` installs it with the operations and red-team packages.
 
-Invoke with `/design-review` and `/seo-geo-review` in Claude, `$design-review` and `$seo-geo-review` in Codex. `design-review` needs the reviewer agent from this package: `design-reviewer` in Claude, `design_reviewer` in Codex. It runs two fresh, independent read-only instances and never reviews in the conversation that built the page. Requires Python 3.9 or later; both scripts use only the standard library.
+Invoke with `/design-review` and `/seo-geo-review` in Claude, `$design-review` and `$seo-geo-review` in Codex. `design-review` needs the reviewer agent from this package: `design-reviewer` in Claude, `design_reviewer` in Codex. It runs two fresh, independent read-only instances and never reviews in the conversation that built the page. The Codex agent's read-only setting must be enforced by the parent Codex session; a custom agent file's `sandbox_mode` does not override it. Requires Python 3.9 or later; both scripts use only the standard library.
 
 Optional: a browser tool (Playwright MCP, Claude Browser or Claude in Chrome) lets the reviewer open the page at 1440/768/375 widths and press the controls. [Hallmark](https://github.com/Nutlope/hallmark) `sloplint` adds a rule-based lint pass, and `puppeteer-core` plus Chrome adds screenshots. Without them the Skill says so and continues.
 
@@ -109,9 +109,9 @@ Mobile (375×812)
 - One page, one builder model, one reviewer model. The scores show the loop moves a page in the right direction; they are not a calibrated measure of design quality.
 - Two runs shrink reviewer noise but do not remove it. Treat a few points of difference as noise.
 - Without `measure.mjs` (Node 22+ and Chrome) or a browser tool, measured items (touch targets, input font size, first viewport) become estimates and the reviewer says so in `limits`. `measure.mjs` does not apply the WCAG 2.5.8 spacing exception, so small targets with enough clear space still appear in its list for the reviewer to judge.
-- `seo-geo-review` is rule-based: it approximates sentence quality, never sees the rendered DOM, external CSS/JS or real image weight, and only reports whether `sitemap.xml` exists. Korean units (회, 건, 크레딧 and others) count as citable numbers, a first paragraph passes G4 with the brand name plus a verb phrase, and a `robots.txt` that blocks `/.well-known/` fails G1. `python3 skills/seo-geo-review/scripts/seo_check.py --self-test` runs the examples.
+- `seo-geo-review` is rule-based: it approximates sentence quality, never sees the rendered DOM, external CSS/JS or real image weight, and only reports whether `sitemap.xml` exists. Korean units (회, 건, 크레딧 and others) count as citable numbers, a first paragraph passes G4 with the brand name plus a verb phrase, and a `robots.txt` that blocks `/.well-known/` fails G1. G1 checks GPTBot, ClaudeBot, Claude-SearchBot, PerplexityBot and OAI-SearchBot; a `Google-Extended` block is only noted, not scored. FAQPage markup (S3) is 하, since Google no longer shows FAQ rich results. `python3 skills/seo-geo-review/scripts/seo_check.py --self-test` runs the examples.
 - Reports are Korean only.
 
 ## Sources
 
-Tier model and gate ids from [Nutlope/hallmark](https://github.com/Nutlope/hallmark) (MIT); heuristic scoring and P0–P3 from [pbakaus/impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0); live review steps and categories from [OneRedOak/claude-code-workflows](https://github.com/OneRedOak/claude-code-workflows) (MIT); anti-slop tells from oh-my-design (MIT). SEO/GEO checks follow Google Search Central, the Open Graph protocol, schema.org, llmstxt.org, the AI crawlers' own documentation (GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot, Google-Extended) and web.dev. Wording is rewritten, not copied.
+Tier model and gate ids from [Nutlope/hallmark](https://github.com/Nutlope/hallmark) (MIT); heuristic scoring and P0–P3 from [pbakaus/impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0); live review steps and categories from [OneRedOak/claude-code-workflows](https://github.com/OneRedOak/claude-code-workflows) (MIT); anti-slop tells from oh-my-design (MIT). SEO/GEO checks follow Google Search Central, the Open Graph protocol, schema.org, llmstxt.org, the AI crawlers' own documentation (GPTBot, OAI-SearchBot, ClaudeBot, Claude-SearchBot, PerplexityBot, Google-Extended) and web.dev. Wording is rewritten, not copied.
